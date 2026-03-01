@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Sudoku</title>
+    <!-- Premium Google Fonts: Outfit -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <h1>Sudoku</h1>
+            <div class="stats-bar">
+                <div class="difficulty-selector">
+                    <select id="difficulty" aria-label="Select Difficulty">
+                        <option value="easy">Easy</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="hard">Hard</option>
+                    </select>
+                </div>
+                <div class="timer" id="timer">00:00</div>
+                <div class="mistakes">Mistakes: <span id="mistake-count">0</span>/3</div>
+            </div>
+        </header>
+
+        <main>
+            <div class="board-container">
+                <div class="sudoku-board" id="sudoku-board">
+                    <!-- JS injects 81 cells here -->
+                </div>
+                
+                <!-- Game Over / Win Overlay -->
+                <div class="overlay" id="game-overlay">
+                    <div class="overlay-content">
+                        <h2 id="overlay-title">Game Over!</h2>
+                        <p id="overlay-msg">You made 3 mistakes.</p>
+                        <button id="overlay-btn" class="primary-btn">New Game</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls-panel">
+                <div class="action-buttons">
+                    <button class="action-btn" id="btn-undo"><i class="fas fa-undo"></i><span>Undo</span></button>
+                    <button class="action-btn" id="btn-erase"><i class="fas fa-eraser"></i><span>Erase</span></button>
+                    <button class="action-btn" id="btn-hint"><i class="fas fa-lightbulb"></i><span>Hint</span></button>
+                    <button class="action-btn new-game-btn" id="btn-new-game"><i class="fas fa-plus"></i><span>New</span></button>
+                </div>
+
+                <div class="numpad" id="numpad">
+                    <!-- 1 to 9 Numpad Buttons -->
+                    <button class="num-btn" data-val="1">1</button>
+                    <button class="num-btn" data-val="2">2</button>
+                    <button class="num-btn" data-val="3">3</button>
+                    <button class="num-btn" data-val="4">4</button>
+                    <button class="num-btn" data-val="5">5</button>
+                    <button class="num-btn" data-val="6">6</button>
+                    <button class="num-btn" data-val="7">7</button>
+                    <button class="num-btn" data-val="8">8</button>
+                    <button class="num-btn" data-val="9">9</button>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
