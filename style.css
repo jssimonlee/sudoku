@@ -21,23 +21,23 @@
     --success-color: #10b981;
     /* Emerald 500 */
 
-    /* Board Grid Colors */
-    --cell-bg: rgba(15, 23, 42, 0.4);
-    --cell-border: rgba(255, 255, 255, 0.05);
-    --cell-border-thick: rgba(255, 255, 255, 0.3);
+    /* Board Grid Colors - Light Theme */
+    --cell-bg: rgba(255, 255, 255, 0.6);
+    --cell-border: rgba(0, 0, 0, 0.08);
+    --cell-border-thick: rgba(0, 0, 0, 0.25);
 
-    /* Interaction Colors */
-    --cell-selected: rgba(59, 130, 246, 0.3);
-    --cell-highlighted: rgba(255, 255, 255, 0.08);
-    --cell-error: rgba(239, 68, 68, 0.2);
-    --cell-same-number: rgba(96, 165, 250, 0.2);
+    /* Interaction Colors - Light Theme */
+    --cell-selected: rgba(59, 130, 246, 0.25);
+    --cell-highlighted: rgba(0, 0, 0, 0.06);
+    --cell-error: rgba(239, 68, 68, 0.15);
+    --cell-same-number: rgba(59, 130, 246, 0.15);
 
-    /* Overlay Background */
-    --overlay-bg: rgba(15, 23, 42, 0.85);
+    /* Overlay Background - Light Theme */
+    --overlay-bg: rgba(255, 255, 255, 0.85);
 
-    /* Body Background Gradient Colors */
-    --bg-gradient-1: rgba(59, 130, 246, 0.15);
-    --bg-gradient-2: rgba(139, 92, 246, 0.15);
+    /* Body Background Gradient Colors - Light Theme */
+    --bg-gradient-1: rgba(59, 130, 246, 0.2);
+    --bg-gradient-2: rgba(139, 92, 246, 0.2);
 }
 
 [data-theme="dark"] {
