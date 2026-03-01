@@ -266,13 +266,52 @@ document.addEventListener('DOMContentLoaded', () => {
 
         numButtons.forEach(btn => {
             const val = parseInt(btn.getAttribute('data-val'));
+            const wasDisabled = btn.classList.contains('disabled');
+
             if (counts[val] >= 9) {
                 btn.classList.add('disabled');
+                // Trigger celebration only when this number JUST became complete
+                if (!wasDisabled) {
+                    celebrateNumber(val, btn);
+                }
             } else {
                 btn.classList.remove('disabled');
             }
         });
     }
+
+    // Cascade wave animation for a completed number
+    function celebrateNumber(val, btnEl) {
+        // Collect all cells with this number in board order (top-left to bottom-right)
+        const cells = [];
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (board[r][c] === val) {
+                    cells.push(getCellElement(r, c));
+                }
+            }
+        }
+
+        // Fire cascade: each cell gets a delayed animation
+        cells.forEach((cellEl, idx) => {
+            setTimeout(() => {
+                if (!cellEl) return;
+                cellEl.classList.remove('complete-flash');
+                void cellEl.offsetWidth; // Reflow to restart animation
+                cellEl.classList.add('complete-flash');
+                setTimeout(() => cellEl.classList.remove('complete-flash'), 800);
+            }, idx * 60); // 60ms between each cell
+        });
+
+        // Celebrate numpad button with a pop after the wave
+        if (btnEl) {
+            setTimeout(() => {
+                btnEl.classList.add('completing');
+                setTimeout(() => btnEl.classList.remove('completing'), 800);
+            }, cells.length * 60 + 50);
+        }
+    }
+
 
     function checkWin() {
         let isComplete = true;
