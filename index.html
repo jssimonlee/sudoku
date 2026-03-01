@@ -48,13 +48,21 @@
                         <button id="overlay-btn" class="primary-btn">New Game</button>
                     </div>
                 </div>
+
+                <!-- Pause Overlay -->
+                <div class="overlay pause-overlay" id="pause-overlay">
+                    <div class="pause-play-btn" id="pause-resume-btn" aria-label="Resume Game">
+                        <i class="fas fa-play"></i>
+                    </div>
+                </div>
             </div>
 
             <div class="controls-panel">
                 <div class="action-buttons">
                     <button class="action-btn" id="btn-undo"><i class="fas fa-undo"></i><span>Undo</span></button>
                     <button class="action-btn" id="btn-erase"><i class="fas fa-eraser"></i><span>Erase</span></button>
-                    <button class="action-btn" id="btn-hint"><i class="fas fa-lightbulb"></i><span>Hint</span></button>
+                    <button class="action-btn" id="btn-pause"><i class="fas fa-pause" id="pause-icon"></i><span
+                            id="pause-label">Pause</span></button>
                     <button class="action-btn new-game-btn" id="btn-new-game"><i
                             class="fas fa-plus"></i><span>New</span></button>
                 </div>

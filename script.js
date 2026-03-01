@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let mistakes = 0;
     const MAX_MISTAKES = 3;
     let history = [];
+    let isPaused = false;
 
     let timerInterval;
     let secondsElapsed = 0;
@@ -20,13 +21,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const numButtons = document.querySelectorAll('.num-btn');
     const btnUndo = document.getElementById('btn-undo');
     const btnErase = document.getElementById('btn-erase');
-    const btnHint = document.getElementById('btn-hint');
+    const btnPause = document.getElementById('btn-pause');
+    const pauseIcon = document.getElementById('pause-icon');
+    const pauseLabel = document.getElementById('pause-label');
     const btnNewGame = document.getElementById('btn-new-game');
 
     const overlay = document.getElementById('game-overlay');
     const overlayTitle = document.getElementById('overlay-title');
     const overlayMsg = document.getElementById('overlay-msg');
     const overlayBtn = document.getElementById('overlay-btn');
+    const pauseOverlay = document.getElementById('pause-overlay');
+    const pauseResumeBtn = document.getElementById('pause-resume-btn');
 
     const themeToggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
@@ -62,7 +67,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btnUndo.addEventListener('click', undoMove);
     btnErase.addEventListener('click', eraseCell);
-    btnHint.addEventListener('click', giveHint);
+    btnPause.addEventListener('click', togglePause);
+    pauseResumeBtn.addEventListener('click', togglePause);
 
     numButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -74,6 +80,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', (e) => {
         if (overlay.classList.contains('active')) return;
+        if (isPaused) {
+            // Allow space to unpause
+            if (e.code === 'Space') { e.preventDefault(); togglePause(); }
+            return;
+        }
 
         if (e.key >= '1' && e.key <= '9') {
             inputNumber(parseInt(e.key));
@@ -90,6 +101,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initGame() {
         overlay.classList.remove('active');
+        // Always resume if starting a new game while paused
+        if (isPaused) {
+            isPaused = false;
+            pauseOverlay.classList.remove('active');
+            pauseIcon.className = 'fas fa-pause';
+            pauseLabel.textContent = 'Pause';
+        }
         mistakes = 0;
         updateMistakesDisplay();
         history = [];
@@ -101,6 +119,27 @@ document.addEventListener('DOMContentLoaded', () => {
         generateSudoku();
         renderBoard();
         updateNumpadState();
+    }
+
+    function togglePause() {
+        // Don't allow pause if game is already over
+        if (overlay.classList.contains('active')) return;
+
+        isPaused = !isPaused;
+
+        if (isPaused) {
+            // Pause
+            clearInterval(timerInterval);
+            pauseOverlay.classList.add('active');
+            pauseIcon.className = 'fas fa-play';
+            pauseLabel.textContent = 'Resume';
+        } else {
+            // Resume
+            startTimer();
+            pauseOverlay.classList.remove('active');
+            pauseIcon.className = 'fas fa-pause';
+            pauseLabel.textContent = 'Pause';
+        }
     }
 
     function renderBoard() {

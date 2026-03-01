@@ -541,6 +541,40 @@ main {
     transform: scale(1);
 }
 
+/* Pause Overlay */
+.pause-overlay {
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(14px);
+}
+
+.pause-play-btn {
+    width: 80px;
+    height: 80px;
+    background: var(--accent-color);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 2rem;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 0 30px rgba(59, 130, 246, 0.7);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    /* Offset icon slightly right because play arrow looks off-center */
+    padding-left: 6px;
+}
+
+.pause-play-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 45px rgba(59, 130, 246, 0.9);
+}
+
+.pause-play-btn:active {
+    transform: scale(0.95);
+}
+
+
+
 .overlay h2 {
     font-size: 2rem;
     margin-bottom: 12px;
