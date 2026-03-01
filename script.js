@@ -28,10 +28,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const overlayMsg = document.getElementById('overlay-msg');
     const overlayBtn = document.getElementById('overlay-btn');
 
+    const themeToggleBtn = document.getElementById('theme-toggle');
+    const themeIcon = document.getElementById('theme-icon');
+
     // === Init Game ===
     initGame();
 
     // === Event Listeners ===
+    themeToggleBtn.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        if (currentTheme === 'light') {
+            document.documentElement.removeAttribute('data-theme');
+            themeIcon.className = 'fas fa-sun';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+            themeIcon.className = 'fas fa-moon';
+        }
+    });
+
     difficultySelect.addEventListener('change', initGame);
     btnNewGame.addEventListener('click', initGame);
     overlayBtn.addEventListener('click', initGame);

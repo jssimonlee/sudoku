@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,10 +11,16 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="app-container">
         <header>
-            <h1>Sudoku</h1>
+            <div class="header-top">
+                <h1>Sudoku</h1>
+                <button id="theme-toggle" class="icon-btn" aria-label="Toggle Theme">
+                    <i class="fas fa-sun" id="theme-icon"></i>
+                </button>
+            </div>
             <div class="stats-bar">
                 <div class="difficulty-selector">
                     <select id="difficulty" aria-label="Select Difficulty">
@@ -32,7 +39,7 @@
                 <div class="sudoku-board" id="sudoku-board">
                     <!-- JS injects 81 cells here -->
                 </div>
-                
+
                 <!-- Game Over / Win Overlay -->
                 <div class="overlay" id="game-overlay">
                     <div class="overlay-content">
@@ -48,7 +55,8 @@
                     <button class="action-btn" id="btn-undo"><i class="fas fa-undo"></i><span>Undo</span></button>
                     <button class="action-btn" id="btn-erase"><i class="fas fa-eraser"></i><span>Erase</span></button>
                     <button class="action-btn" id="btn-hint"><i class="fas fa-lightbulb"></i><span>Hint</span></button>
-                    <button class="action-btn new-game-btn" id="btn-new-game"><i class="fas fa-plus"></i><span>New</span></button>
+                    <button class="action-btn new-game-btn" id="btn-new-game"><i
+                            class="fas fa-plus"></i><span>New</span></button>
                 </div>
 
                 <div class="numpad" id="numpad">
@@ -68,4 +76,5 @@
     </div>
     <script src="script.js"></script>
 </body>
+
 </html>
