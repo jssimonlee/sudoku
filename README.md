@@ -1,29 +1,44 @@
-# Premium Sudoku Web Game
+# 프리미엄 수도쿠 웹 게임
 
-A modern, responsive, and fully-featured Sudoku application built with Vanilla JavaScript, HTML5, and CSS3. Features a premium glassmorphism dark theme UI suitable for both desktop and mobile web experiences.
+모던 반응형 수도쿠 게임으로, 순수 HTML, CSS, JavaScript로 만들었습니다. 프리미엄 글래스모피즘 다크/라이트 모드 UI를 지원하며, 데스크톱과 모바일 모두에서 즐길 수 있습니다.
 
-## Features ✨
+## 주요 기능 ✨
 
-- **Modern Premium Interface**: Dark mode, glassmorphism, subtle micro-animations, and smooth `Outfit` typesetting.
-- **Dynamic Board Content**: Backtracking generator ensures every game generated has a valid, unique solution.
-- **Three Difficulties**: Easy, Medium, and Hard, seamlessly integrated into the header.
-- **Real-time Validation**: Highlights conflicting numbers (same row, column, and 3x3 block), shakes on error inputs, and tracks mistake hits (Max 3 mistakes).
-- **Assisting Highlights**: Instantly highlights the current selected row, column, 3x3 box, and matching numbers already on the board.
-- **Smart Numpad**: Number buttons automatically disable once all 9 occurrences are correctly placed on the board.
-- **Responsive Design**: Auto-adjusts layout between landscape desktops and portrait mobile phones perfectly.
-- **Controls Panel**: Complete with undo, erase, hints, and new-game functions. Allows Full-keyboard usage.
+- **프리미엄 UI**: 다크/라이트 모드 토글, 글래스모피즘 효과, 부드러운 애니메이션
+- **스마트 퍼즐 생성**: 백트래킹 알고리즘으로 항상 유일한 정답을 보장하며, 논리만으로 풀 수 있는 퍼즐만 출제 (찍기 불필요)
+- **3단계 난이도**: 쉬움 / 보통 / 어려움
+- **실시간 검증**: 같은 행·열·3×3 블록 내 중복 즉시 감지, 오류 시 흔들림 애니메이션 표시
+- **하이라이트 기능**: 선택한 셀과 같은 행·열·박스·숫자를 자동으로 강조
+- **스마트 숫자 패드**: 9개가 모두 채워진 숫자는 자동으로 비활성화, 완성 시 에메랄드 그린 캐스케이드 파도 효과
+- **클리어 연출**: 게임 완료 시 1~9번 순서로 전체 보드 캐스케이드 후 결과 팝업
+- **Pause / Resume**: 보드를 가리고 타이머를 멈추는 일시정지 기능 (공백키 단축키 지원)
+- **실행 취소(Undo)**: 입력 이력 저장 및 되돌리기
+- **반응형 레이아웃**: 모바일·데스크톱 모두 최적화
 
-## How to Play 🎮
-Simply open `index.html` in your web browser of choice. No build tools or installations required!
+## 조작 방법 🎮
 
-1. Select a cell to input a number.
-2. Ensure you don't violate standard Sudoku rules (1-9 unique values per Row, Column, and 3x3 Box).
-3. Fill out the entire board without making 3 mistakes to win!
+`index.html`을 브라우저에서 열면 바로 플레이할 수 있습니다. 별도 설치 불필요!
 
-## Tech Stack 🛠️
-- **Frontend**: HTML, CSS, JavaScript (Vanilla, Zero Dependencies)
-- **Icons**: FontAwesome 6 (CDN)
-- **Fonts**: Google Fonts Outfit (CDN)
+| 동작 | 방법 |
+|---|---|
+| 숫자 입력 | 셀 클릭 후 화면 숫자 패드 또는 키보드 1~9 |
+| 지우기 | Erase 버튼 또는 Backspace/Delete |
+| 실행 취소 | Undo 버튼 또는 Ctrl+Z / Cmd+Z |
+| 방향 이동 | 방향키 (↑↓←→) |
+| 일시정지 | Pause 버튼 또는 Space |
+| 테마 전환 | 우상단 🌙 / ☀ 버튼 |
 
-## Deployment / Hosting
-Any standard web-host or cloud static-site provider (e.g., GitHub Pages, Vercel, Netlify) can host this straight away by pointing to the root directory folder.
+## 규칙
+
+- 각 행, 열, 3×3 박스에 1~9 숫자가 하나씩만 들어가야 합니다.
+- 오류 3회 발생 시 게임 오버.
+
+## 기술 스택 🛠️
+
+- **프론트엔드**: HTML5, CSS3, Vanilla JavaScript (의존성 없음)
+- **아이콘**: FontAwesome 6 (CDN)
+- **폰트**: Google Fonts – Outfit (CDN)
+
+## 배포
+
+GitHub Pages, Vercel, Netlify 등 정적 호스팅 서비스에 폴더를 그대로 올려 바로 배포할 수 있습니다.

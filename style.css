@@ -543,9 +543,11 @@ main {
 
 /* Pause Overlay */
 .pause-overlay {
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(14px);
+    background: color-mix(in srgb, var(--bg-color) 90%, transparent);
+    backdrop-filter: blur(24px) saturate(0);
+    -webkit-backdrop-filter: blur(24px) saturate(0);
 }
+
 
 .pause-play-btn {
     width: 80px;
