@@ -1,17 +1,17 @@
 :root {
-    /* Color Palette */
-    --bg-color: #0f172a;
-    /* Slate 900 */
-    --surface-color: rgba(30, 41, 59, 0.7);
-    /* Slate 800 blur */
-    --surface-border: rgba(255, 255, 255, 0.1);
+    /* Color Palette (Light Theme - Default) */
+    --bg-color: #f8fafc;
+    /* Slate 50 */
+    --surface-color: rgba(255, 255, 255, 0.85);
+    /* White blur */
+    --surface-border: rgba(0, 0, 0, 0.1);
 
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-initial: #f8fafc;
-    --text-input: #60a5fa;
-    /* Blue 400 for user input */
-    --text-error: #fca5a5;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-initial: #1e293b;
+    --text-input: #2563eb;
+    /* Blue 600 */
+    --text-error: #dc2626;
 
     --accent-color: #3b82f6;
     /* Blue 500 */
@@ -69,17 +69,17 @@
     --cell-border-thick: rgba(0, 0, 0, 0.25);
 
     /* Interaction Colors */
-    --cell-selected: rgba(59, 130, 246, 0.25);
-    --cell-highlighted: rgba(0, 0, 0, 0.06);
-    --cell-error: rgba(239, 68, 68, 0.15);
-    --cell-same-number: rgba(59, 130, 246, 0.15);
+    --cell-selected: rgba(59, 130, 246, 0.3);
+    --cell-highlighted: rgba(255, 255, 255, 0.08);
+    --cell-error: rgba(239, 68, 68, 0.2);
+    --cell-same-number: rgba(96, 165, 250, 0.2);
 
     /* Overlay Background */
-    --overlay-bg: rgba(255, 255, 255, 0.85);
+    --overlay-bg: rgba(15, 23, 42, 0.85);
 
     /* Body Background Gradient Colors */
-    --bg-gradient-1: rgba(59, 130, 246, 0.2);
-    --bg-gradient-2: rgba(139, 92, 246, 0.2);
+    --bg-gradient-1: rgba(59, 130, 246, 0.15);
+    --bg-gradient-2: rgba(139, 92, 246, 0.15);
 }
 
 * {
@@ -158,8 +158,19 @@ h1 {
     transform: translateY(-2px);
 }
 
-.icon-btn:active {
-    transform: translateY(0);
+.icon-btn i {
+    font-size: 1.5rem;
+    /* Larger icon */
+    transition: all 0.3s ease;
+}
+
+.theme-sun {
+    color: #eab308;
+    /* Yellow 500 */
+    text-shadow: 0 0 12px rgba(234, 179, 8, 0.8);
+    /* Soft yellow glow */
+    font-weight: 900;
+    /* Force Solid style for FontAwesome */
 }
 
 .stats-bar {

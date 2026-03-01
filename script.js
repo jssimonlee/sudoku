@@ -32,14 +32,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeIcon = document.getElementById('theme-icon');
 
     // === Init Game ===
+    initTheme();
     initGame();
+
+    function initTheme() {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        if (!currentTheme) {
+            // Default to light theme
+            document.documentElement.setAttribute('data-theme', 'light');
+            themeIcon.className = 'fas fa-moon';
+        }
+    }
 
     // === Event Listeners ===
     themeToggleBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme');
         if (currentTheme === 'light') {
-            document.documentElement.removeAttribute('data-theme');
-            themeIcon.className = 'fas fa-sun';
+            document.documentElement.setAttribute('data-theme', 'dark');
+            themeIcon.className = 'fas fa-sun theme-sun';
         } else {
             document.documentElement.setAttribute('data-theme', 'light');
             themeIcon.className = 'fas fa-moon';
