@@ -40,20 +40,20 @@
     --bg-gradient-2: rgba(139, 92, 246, 0.15);
 }
 
-[data-theme="light"] {
+[data-theme="dark"] {
     /* Color Palette */
-    --bg-color: #f8fafc;
-    /* Slate 50 */
-    --surface-color: rgba(255, 255, 255, 0.85);
-    /* White blur */
-    --surface-border: rgba(0, 0, 0, 0.1);
+    --bg-color: #0f172a;
+    /* Slate 900 */
+    --surface-color: rgba(30, 41, 59, 0.7);
+    /* Slate 800 blur */
+    --surface-border: rgba(255, 255, 255, 0.1);
 
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-initial: #1e293b;
-    --text-input: #2563eb;
-    /* Blue 600 */
-    --text-error: #dc2626;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-initial: #f8fafc;
+    --text-input: #60a5fa;
+    /* Blue 400 */
+    --text-error: #fca5a5;
 
     --accent-color: #3b82f6;
     /* Blue 500 */
@@ -64,9 +64,9 @@
     /* Emerald 500 */
 
     /* Board Grid Colors */
-    --cell-bg: rgba(255, 255, 255, 0.6);
-    --cell-border: rgba(0, 0, 0, 0.08);
-    --cell-border-thick: rgba(0, 0, 0, 0.25);
+    --cell-bg: rgba(15, 23, 42, 0.4);
+    --cell-border: rgba(255, 255, 255, 0.05);
+    --cell-border-thick: rgba(255, 255, 255, 0.3);
 
     /* Interaction Colors */
     --cell-selected: rgba(59, 130, 246, 0.3);
