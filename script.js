@@ -176,8 +176,10 @@ document.addEventListener('DOMContentLoaded', () => {
             saveHistory(r, c, board[r][c]);
             board[r][c] = val;
             updateCellDOM(r, c, val, true);
-            selectCell(r, c); // Refresh highlights
+            // Update numpad state FIRST (celebration fires here)
+            // Then refresh highlights — order matters so animation isn't cleared
             updateNumpadState();
+            selectCell(r, c); // Refresh highlights after animation trigger
             checkWin();
         } else {
             // Incorrect logic
@@ -328,18 +330,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function gameOver(isWin) {
         clearInterval(timerInterval);
-        overlay.classList.add('active');
 
         if (isWin) {
             overlayTitle.textContent = "Excellent!";
             overlayTitle.className = "";
-            let timeStr = formatTime(secondsElapsed);
+            const timeStr = formatTime(secondsElapsed);
             overlayMsg.textContent = `You solved the puzzle in ${timeStr} with ${mistakes}/3 mistakes.`;
+            // Play win cascade then show overlay
+            celebrateAllNumbers(() => {
+                overlay.classList.add('active');
+            });
         } else {
             overlayTitle.textContent = "Game Over!";
             overlayTitle.className = "error-title";
             overlayMsg.textContent = "You made 3 mistakes. Try again!";
+            overlay.classList.add('active');
         }
+    }
+
+    // Cascade all 9 numbers in sequence at win, then call callback
+    function celebrateAllNumbers(callback) {
+        const WAVE_DURATION = 65;    // ms per cell
+        const GROUP_DELAY = 120;     // ms between starting each number group
+
+        let totalDelay = 0;
+        for (let num = 1; num <= 9; num++) {
+            const cells = [];
+            for (let r = 0; r < 9; r++)
+                for (let c = 0; c < 9; c++)
+                    if (board[r][c] === num) cells.push(getCellElement(r, c));
+
+            const numStartDelay = totalDelay;
+            cells.forEach((cellEl, idx) => {
+                setTimeout(() => {
+                    if (!cellEl) return;
+                    cellEl.classList.remove('complete-flash');
+                    void cellEl.offsetWidth;
+                    cellEl.classList.add('complete-flash');
+                    setTimeout(() => cellEl.classList.remove('complete-flash'), 700);
+                }, numStartDelay + idx * WAVE_DURATION);
+            });
+
+            // Also flash numpad button
+            const btn = document.querySelector(`.num-btn[data-val="${num}"]`);
+            if (btn) {
+                setTimeout(() => {
+                    btn.classList.add('completing');
+                    setTimeout(() => btn.classList.remove('completing'), 700);
+                }, numStartDelay);
+            }
+
+            totalDelay += GROUP_DELAY;
+        }
+
+        // Show overlay after all animations finish
+        setTimeout(callback, totalDelay + 700);
     }
 
     function handleArrowNavigation(key) {
