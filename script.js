@@ -78,7 +78,24 @@ document.addEventListener('DOMContentLoaded', () => {
         if (isGreenComplete) {
             // Feature ON: button becomes colorless, numbers turn green
             completeColorToggleBtn.classList.remove('complete-color-on');
-            updateNumpadState();
+            updateNumpadState(); // handles numpad buttons
+
+            // Also apply green to board cells of already-completed numbers
+            const counts = Array(10).fill(0);
+            for (let r = 0; r < 9; r++)
+                for (let c = 0; c < 9; c++)
+                    if (board[r][c] !== 0) counts[board[r][c]]++;
+
+            for (let num = 1; num <= 9; num++) {
+                if (counts[num] >= 9) {
+                    for (let r = 0; r < 9; r++)
+                        for (let c = 0; c < 9; c++)
+                            if (board[r][c] === num) {
+                                const el = getCellElement(r, c);
+                                if (el) el.classList.add('cell-complete');
+                            }
+                }
+            }
         } else {
             // Feature OFF: button becomes green, remove green, restore disabled style
             completeColorToggleBtn.classList.add('complete-color-on');
@@ -89,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+
 
     numButtons.forEach(btn => {
         btn.addEventListener('click', () => {
