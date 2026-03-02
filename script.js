@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_MISTAKES = 3;
     let history = [];
     let isPaused = false;
+    let isGreenComplete = true; // Green completion highlight ON by default
 
     let timerInterval;
     let secondsElapsed = 0;
@@ -35,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const themeToggleBtn = document.getElementById('theme-toggle');
     const themeIcon = document.getElementById('theme-icon');
+    const completeColorToggleBtn = document.getElementById('complete-color-toggle');
 
     // === Init Game ===
     initTheme();
@@ -69,6 +71,21 @@ document.addEventListener('DOMContentLoaded', () => {
     btnErase.addEventListener('click', eraseCell);
     btnPause.addEventListener('click', togglePause);
     pauseResumeBtn.addEventListener('click', togglePause);
+
+    completeColorToggleBtn.addEventListener('click', () => {
+        isGreenComplete = !isGreenComplete;
+
+        if (isGreenComplete) {
+            completeColorToggleBtn.classList.add('complete-color-on');
+            // Re-apply green to already-completed cells/buttons
+            updateNumpadState();
+        } else {
+            completeColorToggleBtn.classList.remove('complete-color-on');
+            // Strip all green complete classes from board cells and numpad buttons
+            document.querySelectorAll('.cell.cell-complete').forEach(el => el.classList.remove('cell-complete'));
+            document.querySelectorAll('.num-btn.completed').forEach(el => el.classList.remove('completed'));
+        }
+    });
 
     numButtons.forEach(btn => {
         btn.addEventListener('click', () => {
@@ -310,7 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const wasCompleted = btn.classList.contains('completed');
 
             if (counts[val] >= 9) {
-                btn.classList.add('completed');
+                if (isGreenComplete) btn.classList.add('completed');
                 btn.classList.remove('disabled');
                 // Trigger celebration only when this number JUST became complete
                 if (!wasCompleted) {
@@ -344,8 +361,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 cellEl.classList.add('complete-flash');
                 setTimeout(() => {
                     cellEl.classList.remove('complete-flash');
-                    // Permanently colour the cell green after animation
-                    cellEl.classList.add('cell-complete');
+                    // Permanently colour the cell green after animation (if toggle is ON)
+                    if (isGreenComplete) cellEl.classList.add('cell-complete');
                 }, 700);
             }, idx * 60); // 60ms between each cell
         });

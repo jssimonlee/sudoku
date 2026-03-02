@@ -17,10 +17,17 @@
         <header>
             <div class="header-top">
                 <h1>Sudoku</h1>
-                <button id="theme-toggle" class="icon-btn" aria-label="Toggle Theme">
-                    <i class="fas fa-sun" id="theme-icon"></i>
-                </button>
+                <div class="header-actions">
+                    <button id="complete-color-toggle" class="icon-btn complete-color-on"
+                        aria-label="Toggle Green Complete Highlight" title="완료된 숫자 녹색 표시 ON/OFF">
+                        <span class="hash-icon">#</span>
+                    </button>
+                    <button id="theme-toggle" class="icon-btn" aria-label="Toggle Theme">
+                        <i class="fas fa-sun" id="theme-icon"></i>
+                    </button>
+                </div>
             </div>
+
             <div class="stats-bar">
                 <div class="difficulty-selector">
                     <select id="difficulty" aria-label="Select Difficulty">
