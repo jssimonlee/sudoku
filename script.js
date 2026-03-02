@@ -8,7 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_MISTAKES = 3;
     let history = [];
     let isPaused = false;
-    let isGreenComplete = false; // Green completion highlight OFF by default (button is green = feature off)
+    let isGreenComplete = false;
+    let isNotesMode = false;
+    // notes[r][c] = Set of draft numbers (1-9)
+    let notes = [];
 
     let timerInterval;
     let secondsElapsed = 0;
@@ -22,9 +25,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const numButtons = document.querySelectorAll('.num-btn');
     const btnUndo = document.getElementById('btn-undo');
     const btnErase = document.getElementById('btn-erase');
+    const btnNotes = document.getElementById('btn-notes');
     const btnPause = document.getElementById('btn-pause');
     const pauseIcon = document.getElementById('pause-icon');
-    const pauseLabel = document.getElementById('pause-label');
     const btnNewGame = document.getElementById('btn-new-game');
 
     const overlay = document.getElementById('game-overlay');
@@ -72,6 +75,11 @@ document.addEventListener('DOMContentLoaded', () => {
     btnPause.addEventListener('click', togglePause);
     pauseResumeBtn.addEventListener('click', togglePause);
 
+    btnNotes.addEventListener('click', () => {
+        isNotesMode = !isNotesMode;
+        btnNotes.classList.toggle('notes-active', isNotesMode);
+    });
+
     completeColorToggleBtn.addEventListener('click', () => {
         isGreenComplete = !isGreenComplete;
 
@@ -110,9 +118,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     numButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (btn.classList.contains('disabled')) return;
+            if (btn.classList.contains('completed') || btn.classList.contains('disabled')) return;
             const val = parseInt(btn.getAttribute('data-val'));
-            inputNumber(val);
+            if (isNotesMode) {
+                inputNote(val);
+            } else {
+                inputNumber(val);
+            }
         });
     });
 
@@ -144,8 +156,12 @@ document.addEventListener('DOMContentLoaded', () => {
             isPaused = false;
             pauseOverlay.classList.remove('active');
             pauseIcon.className = 'fas fa-pause';
-            pauseLabel.textContent = 'Pause';
         }
+        // Reset notes mode
+        isNotesMode = false;
+        btnNotes.classList.remove('notes-active');
+        notes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
+
         mistakes = 0;
         updateMistakesDisplay();
         history = [];
@@ -160,23 +176,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function togglePause() {
-        // Don't allow pause if game is already over
         if (overlay.classList.contains('active')) return;
-
         isPaused = !isPaused;
-
         if (isPaused) {
-            // Pause
             clearInterval(timerInterval);
             pauseOverlay.classList.add('active');
             pauseIcon.className = 'fas fa-play';
-            pauseLabel.textContent = 'Resume';
         } else {
-            // Resume
             startTimer();
             pauseOverlay.classList.remove('active');
             pauseIcon.className = 'fas fa-pause';
-            pauseLabel.textContent = 'Pause';
         }
     }
 
@@ -249,14 +258,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Validate Input against Solution
         if (solution[r][c] === val) {
-            // Correct logic
+            // Correct logic — clear any draft notes for this cell first
+            notes[r][c].clear();
             saveHistory(r, c, board[r][c]);
             board[r][c] = val;
             updateCellDOM(r, c, val, true);
-            // Update numpad state FIRST (celebration fires here)
-            // Then refresh highlights — order matters so animation isn't cleared
             updateNumpadState();
-            selectCell(r, c); // Refresh highlights after animation trigger
+            selectCell(r, c);
             checkWin();
         } else {
             // Incorrect logic
@@ -279,15 +287,58 @@ document.addEventListener('DOMContentLoaded', () => {
     function eraseCell() {
         if (!selectedCell) return;
         const { r, c } = selectedCell;
-
         if (initialBoard[r][c] !== 0) return;
-        if (board[r][c] === 0) return;
 
-        saveHistory(r, c, board[r][c]);
-        board[r][c] = 0;
-        updateCellDOM(r, c, '', false);
+        // If there's a placed number, erase it
+        if (board[r][c] !== 0) {
+            saveHistory(r, c, board[r][c]);
+            board[r][c] = 0;
+            updateCellDOM(r, c, '', false);
+        }
+        // Always clear all draft notes
+        if (notes[r][c].size > 0) {
+            notes[r][c].clear();
+            renderCellNotes(r, c);
+        }
         selectCell(r, c);
         updateNumpadState();
+    }
+
+    // === Notes Mode ===
+    function inputNote(val) {
+        if (!selectedCell) return;
+        const { r, c } = selectedCell;
+        if (initialBoard[r][c] !== 0) return; // Can't note on initial clues
+        if (board[r][c] !== 0) return;         // Can't note where a number is placed
+
+        // Toggle: add if absent, remove if present
+        if (notes[r][c].has(val)) {
+            notes[r][c].delete(val);
+        } else {
+            notes[r][c].add(val);
+        }
+        renderCellNotes(r, c);
+    }
+
+    function renderCellNotes(r, c) {
+        const cellEl = getCellElement(r, c);
+        if (!cellEl) return;
+        // Clear existing content
+        cellEl.innerHTML = '';
+        cellEl.textContent = '';
+
+        const noteSet = notes[r][c];
+        if (noteSet.size === 0) return;
+
+        const grid = document.createElement('div');
+        grid.className = 'cell-notes-grid';
+        for (let n = 1; n <= 9; n++) {
+            const span = document.createElement('span');
+            span.className = 'cell-note-num';
+            span.textContent = noteSet.has(n) ? n : '';
+            grid.appendChild(span);
+        }
+        cellEl.appendChild(grid);
     }
 
     function undoMove() {

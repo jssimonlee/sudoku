@@ -18,11 +18,16 @@
             <div class="header-top">
                 <h1>Sudoku</h1>
                 <div class="header-actions">
+                    <!-- Pause button moved here as small icon -->
+                    <button id="btn-pause" class="icon-btn" aria-label="Pause Game" title="게임 일시정지 / 재개 (Space)">
+                        <i class="fas fa-pause" id="pause-icon"></i>
+                    </button>
+                    <!-- Green complete toggle -->
                     <button id="complete-color-toggle" class="icon-btn complete-color-on"
                         aria-label="Toggle Green Complete Highlight" title="완료된 숫자 녹색 표시 ON/OFF">
                         <span class="hash-icon">#</span>
                     </button>
-                    <button id="theme-toggle" class="icon-btn" aria-label="Toggle Theme">
+                    <button id="theme-toggle" class="icon-btn" aria-label="Toggle Theme" title="라이트/다크 모드 전환">
                         <i class="fas fa-sun" id="theme-icon"></i>
                     </button>
                 </div>
@@ -30,7 +35,7 @@
 
             <div class="stats-bar">
                 <div class="difficulty-selector">
-                    <select id="difficulty" aria-label="Select Difficulty">
+                    <select id="difficulty" aria-label="Select Difficulty" title="난이도 선택">
                         <option value="easy">Easy</option>
                         <option value="medium" selected>Medium</option>
                         <option value="hard">Hard</option>
@@ -79,11 +84,13 @@
                 </div>
 
                 <div class="action-buttons">
-                    <button class="action-btn" id="btn-undo"><i class="fas fa-undo"></i><span>Undo</span></button>
-                    <button class="action-btn" id="btn-erase"><i class="fas fa-eraser"></i><span>Erase</span></button>
-                    <button class="action-btn" id="btn-pause"><i class="fas fa-pause" id="pause-icon"></i><span
-                            id="pause-label">Pause</span></button>
-                    <button class="action-btn new-game-btn" id="btn-new-game"><i
+                    <button class="action-btn" id="btn-undo" title="실행 취소 (Ctrl+Z)"><i
+                            class="fas fa-undo"></i><span>Undo</span></button>
+                    <button class="action-btn" id="btn-erase" title="선택 칸 지우기 (Backspace)"><i
+                            class="fas fa-eraser"></i><span>Erase</span></button>
+                    <button class="action-btn" id="btn-notes" title="메모 모드: 예상 숫자를 작게 적기"><i
+                            class="fas fa-pencil-alt"></i><span>Notes</span></button>
+                    <button class="action-btn new-game-btn" id="btn-new-game" title="새 게임 시작"><i
                             class="fas fa-plus"></i><span>New</span></button>
                 </div>
             </div>
