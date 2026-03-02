@@ -258,14 +258,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Validate Input against Solution
         if (solution[r][c] === val) {
-            // Correct logic — clear any draft notes for this cell first
+            // Correct logic — clear notes for this cell
             notes[r][c].clear();
             saveHistory(r, c, board[r][c]);
             board[r][c] = val;
             updateCellDOM(r, c, val, true);
+            // Remove this number from notes of all related cells (row/col/box)
+            removeNoteFromRelatedCells(r, c, val);
             updateNumpadState();
             selectCell(r, c);
             checkWin();
+
         } else {
             // Incorrect logic
             mistakes++;
@@ -323,7 +326,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderCellNotes(r, c) {
         const cellEl = getCellElement(r, c);
         if (!cellEl) return;
-        // Clear existing content
         cellEl.innerHTML = '';
         cellEl.textContent = '';
 
@@ -340,6 +342,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         cellEl.appendChild(grid);
     }
+
+    // When a number is confirmed in (r,c), remove it from notes of all
+    // cells in the same row, column, and 3×3 box
+    function removeNoteFromRelatedCells(r, c, val) {
+        const boxRowStart = Math.floor(r / 3) * 3;
+        const boxColStart = Math.floor(c / 3) * 3;
+
+        for (let i = 0; i < 9; i++) {
+            // Same row
+            if (notes[r][i].has(val)) {
+                notes[r][i].delete(val);
+                renderCellNotes(r, i);
+            }
+            // Same column
+            if (notes[i][c].has(val)) {
+                notes[i][c].delete(val);
+                renderCellNotes(i, c);
+            }
+        }
+        // Same 3×3 box
+        for (let br = boxRowStart; br < boxRowStart + 3; br++) {
+            for (let bc = boxColStart; bc < boxColStart + 3; bc++) {
+                if (notes[br][bc].has(val)) {
+                    notes[br][bc].delete(val);
+                    renderCellNotes(br, bc);
+                }
+            }
+        }
+    }
+
+
 
     function undoMove() {
         if (history.length === 0) return;
