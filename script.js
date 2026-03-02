@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const MAX_MISTAKES = 3;
     let history = [];
     let isPaused = false;
-    let isGreenComplete = true; // Green completion highlight ON by default
+    let isGreenComplete = false; // Green completion highlight OFF by default (button is green = feature off)
 
     let timerInterval;
     let secondsElapsed = 0;
@@ -76,14 +76,17 @@ document.addEventListener('DOMContentLoaded', () => {
         isGreenComplete = !isGreenComplete;
 
         if (isGreenComplete) {
-            completeColorToggleBtn.classList.add('complete-color-on');
-            // Re-apply green to already-completed cells/buttons
+            // Feature ON: button becomes colorless, numbers turn green
+            completeColorToggleBtn.classList.remove('complete-color-on');
             updateNumpadState();
         } else {
-            completeColorToggleBtn.classList.remove('complete-color-on');
-            // Strip all green complete classes from board cells and numpad buttons
+            // Feature OFF: button becomes green, remove green, restore disabled style
+            completeColorToggleBtn.classList.add('complete-color-on');
             document.querySelectorAll('.cell.cell-complete').forEach(el => el.classList.remove('cell-complete'));
-            document.querySelectorAll('.num-btn.completed').forEach(el => el.classList.remove('completed'));
+            document.querySelectorAll('.num-btn.completed').forEach(el => {
+                el.classList.remove('completed');
+                el.classList.add('disabled'); // restore old disabled gray style
+            });
         }
     });
 
@@ -325,16 +328,25 @@ document.addEventListener('DOMContentLoaded', () => {
         numButtons.forEach(btn => {
             const val = parseInt(btn.getAttribute('data-val'));
             const wasCompleted = btn.classList.contains('completed');
+            const wasDisabled = btn.classList.contains('disabled');
 
             if (counts[val] >= 9) {
-                if (isGreenComplete) btn.classList.add('completed');
-                btn.classList.remove('disabled');
+                if (isGreenComplete) {
+                    // Green mode: use green completed style
+                    btn.classList.add('completed');
+                    btn.classList.remove('disabled');
+                } else {
+                    // Normal mode: use old gray disabled style
+                    btn.classList.add('disabled');
+                    btn.classList.remove('completed');
+                }
                 // Trigger celebration only when this number JUST became complete
-                if (!wasCompleted) {
+                if (!wasCompleted && !wasDisabled) {
                     celebrateNumber(val, btn);
                 }
             } else {
                 btn.classList.remove('completed');
+                btn.classList.remove('disabled');
             }
         });
 
