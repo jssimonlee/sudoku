@@ -638,8 +638,12 @@ main {
     cursor: pointer;
     box-shadow: 0 0 30px rgba(59, 130, 246, 0.7);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
-    /* Offset icon slightly right because play arrow looks off-center */
-    padding-left: 6px;
+}
+
+/* Optical centering: the play triangle's visual weight is on its right tip,
+   so we nudge the icon 3px right inside the perfectly-centered flex container */
+.pause-play-btn i {
+    margin-left: 3px;
 }
 
 .pause-play-btn:hover {
@@ -650,6 +654,7 @@ main {
 .pause-play-btn:active {
     transform: scale(0.95);
 }
+
 
 
 
