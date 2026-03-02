@@ -342,7 +342,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 cellEl.classList.remove('complete-flash');
                 void cellEl.offsetWidth; // Reflow to restart animation
                 cellEl.classList.add('complete-flash');
-                setTimeout(() => cellEl.classList.remove('complete-flash'), 800);
+                setTimeout(() => {
+                    cellEl.classList.remove('complete-flash');
+                    // Permanently colour the cell green after animation
+                    cellEl.classList.add('cell-complete');
+                }, 700);
             }, idx * 60); // 60ms between each cell
         });
 
@@ -354,6 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }, cells.length * 60 + 50);
         }
     }
+
 
 
     function checkWin() {

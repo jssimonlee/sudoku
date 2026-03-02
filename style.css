@@ -355,6 +355,14 @@ main {
     isolation: isolate;
 }
 
+/* Permanently tint all 9 cells of a completed number */
+.cell.cell-complete {
+    color: #34d399 !important;
+    /* Emerald 400 */
+    font-weight: 700;
+}
+
+
 /* Numpad button celebration */
 @keyframes numBtnComplete {
     0% {
