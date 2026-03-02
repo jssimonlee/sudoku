@@ -307,18 +307,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
         numButtons.forEach(btn => {
             const val = parseInt(btn.getAttribute('data-val'));
-            const wasDisabled = btn.classList.contains('disabled');
+            const wasCompleted = btn.classList.contains('completed');
 
             if (counts[val] >= 9) {
-                btn.classList.add('disabled');
+                btn.classList.add('completed');
+                btn.classList.remove('disabled');
                 // Trigger celebration only when this number JUST became complete
-                if (!wasDisabled) {
+                if (!wasCompleted) {
                     celebrateNumber(val, btn);
                 }
             } else {
-                btn.classList.remove('disabled');
+                btn.classList.remove('completed');
             }
         });
+
     }
 
     // Cascade wave animation for a completed number

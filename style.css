@@ -479,12 +479,23 @@ main {
     transform: translateY(0) scale(0.95);
 }
 
+.num-btn.completed {
+    color: #34d399;
+    /* Emerald 400 */
+    border-color: rgba(52, 211, 153, 0.4);
+    background: rgba(16, 185, 129, 0.12);
+    pointer-events: none;
+    font-weight: 700;
+    box-shadow: 0 0 10px rgba(52, 211, 153, 0.2);
+}
+
 .num-btn.disabled {
     opacity: 0.15;
     pointer-events: none;
     background: transparent;
     border-color: rgba(255, 255, 255, 0.05);
 }
+
 
 /* Responsive adjustments for Numpad */
 @media (max-width: 480px) {
