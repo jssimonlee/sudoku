@@ -137,7 +137,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (e.key >= '1' && e.key <= '9') {
-            inputNumber(parseInt(e.key));
+            const val = parseInt(e.key);
+            if (isNotesMode) {
+                inputNote(val);
+            } else {
+                inputNumber(val);
+            }
         } else if (e.key === 'Backspace' || e.key === 'Delete') {
             eraseCell();
         } else if (e.key.toLowerCase() === 'z' && (e.ctrlKey || e.metaKey)) {
