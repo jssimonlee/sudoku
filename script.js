@@ -10,8 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPaused = false;
     let isGreenComplete = false;
     let isNotesMode = false;
-    // notes[r][c] = Set of draft numbers (1-9)
     let notes = [];
+    let selectedNumber = null; // Currently active number for quick entry
 
     let timerInterval;
     let secondsElapsed = 0;
@@ -120,6 +120,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => {
             if (btn.classList.contains('completed') || btn.classList.contains('disabled')) return;
             const val = parseInt(btn.getAttribute('data-val'));
+            setSelectedNumber(val); // Mark this number as active
             if (isNotesMode) {
                 inputNote(val);
             } else {
@@ -127,6 +128,22 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // Helper: set the active selected number and highlight the numpad button
+    function setSelectedNumber(val) {
+        selectedNumber = val;
+        numButtons.forEach(btn => {
+            const v = parseInt(btn.getAttribute('data-val'));
+            btn.classList.toggle('num-selected', v === val
+                && !btn.classList.contains('completed')
+                && !btn.classList.contains('disabled'));
+        });
+    }
+
+    function clearSelectedNumber() {
+        selectedNumber = null;
+        numButtons.forEach(btn => btn.classList.remove('num-selected'));
+    }
 
     document.addEventListener('keydown', (e) => {
         if (overlay.classList.contains('active')) return;
@@ -138,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (e.key >= '1' && e.key <= '9') {
             const val = parseInt(e.key);
+            setSelectedNumber(val); // highlight numpad
             if (isNotesMode) {
                 inputNote(val);
             } else {
@@ -165,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset notes mode
         isNotesMode = false;
         btnNotes.classList.remove('notes-active');
+        clearSelectedNumber();
         notes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
 
         mistakes = 0;
@@ -210,7 +229,26 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                cell.addEventListener('click', () => selectCell(r, c));
+                cell.addEventListener('click', () => {
+                    selectCell(r, c);
+                    // Clicking a cell with a number selects that number
+                    const val = board[r][c];
+                    if (val !== 0) {
+                        setSelectedNumber(val);
+                    }
+                });
+                // Double-click on empty cell → enter selected number
+                cell.addEventListener('dblclick', () => {
+                    if (board[r][c] !== 0) return;        // already filled
+                    if (initialBoard[r][c] !== 0) return; // initial clue
+                    if (selectedNumber === null) return;   // nothing selected
+                    selectCell(r, c);
+                    if (isNotesMode) {
+                        inputNote(selectedNumber);
+                    } else {
+                        inputNumber(selectedNumber);
+                    }
+                });
                 boardElement.appendChild(cell);
             }
         }

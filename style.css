@@ -555,6 +555,17 @@ main {
     box-shadow: 0 0 10px rgba(52, 211, 153, 0.2);
 }
 
+/* Active / selected number highlight */
+.num-btn.num-selected {
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+    background: rgba(59, 130, 246, 0.15);
+    font-weight: 900;
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+    transform: scale(1.08);
+}
+
+
 .num-btn.disabled {
     opacity: 0.15;
     pointer-events: none;
