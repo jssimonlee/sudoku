@@ -301,7 +301,7 @@ main {
 /* Cell States */
 .cell.user-input {
     color: var(--text-primary);
-    font-weight: 550;
+    font-weight: 500;
 }
 
 .cell.selected {
