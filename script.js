@@ -167,8 +167,9 @@ document.addEventListener('DOMContentLoaded', () => {
             undoMove();
         } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
             handleArrowNavigation(e.key);
-        } else if (e.key.toLowerCase() === 'f') {
-            // F key: same as double-click — fill selected number into selected empty cell
+        } else if (e.key.toLowerCase() === 'f' || e.key === '`' || e.key === '~' || e.code === 'Space') {
+            // F / ` / ~ / Space: same as double-click — fill selected number into selected empty cell
+            e.preventDefault();
             if (selectedCell !== null && selectedNumber !== null) {
                 const { r, c } = selectedCell;
                 if (board[r][c] === 0 && initialBoard[r][c] === 0) {
