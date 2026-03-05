@@ -145,12 +145,18 @@ document.addEventListener('DOMContentLoaded', () => {
         numButtons.forEach(btn => btn.classList.remove('num-selected'));
     }
 
-    // Auto-pause when tab goes inactive/hidden
-    document.addEventListener('visibilitychange', () => {
-        if (document.hidden && !isPaused && !overlay.classList.contains('active')) {
+    // Auto-pause when tab goes invariant/hidden, or window loses focus (e.g. changing macOS Spaces)
+    function handleAutoPause() {
+        if (!isPaused && !overlay.classList.contains('active')) {
             togglePause();
         }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) handleAutoPause();
     });
+
+    window.addEventListener('blur', handleAutoPause);
 
     document.addEventListener('keydown', (e) => {
         if (overlay.classList.contains('active')) return;
