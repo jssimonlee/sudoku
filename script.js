@@ -145,6 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
         numButtons.forEach(btn => btn.classList.remove('num-selected'));
     }
 
+    // Auto-pause when tab goes inactive/hidden
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && !isPaused && !overlay.classList.contains('active')) {
+            togglePause();
+        }
+    });
+
     document.addEventListener('keydown', (e) => {
         if (overlay.classList.contains('active')) return;
         if (isPaused) {

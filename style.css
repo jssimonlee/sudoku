@@ -231,8 +231,21 @@ select option {
     color: var(--text-primary);
 }
 
-.mistakes-container {
+.difficulty-selector {
+    flex: 1;
     display: flex;
+    justify-content: flex-start;
+}
+
+.timer {
+    flex: 1;
+    text-align: center;
+}
+
+.mistakes-container {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
     align-items: center;
 }
 
