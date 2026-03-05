@@ -231,8 +231,39 @@ select option {
     color: var(--text-primary);
 }
 
-#mistake-count {
-    color: var(--error-color);
+.mistakes-container {
+    display: flex;
+    align-items: center;
+}
+
+.health-bars {
+    display: flex;
+    gap: 4px;
+}
+
+.health-bar {
+    width: 14px;
+    height: 18px;
+    border-radius: 3px;
+    background-color: transparent;
+    border: 1.5px solid rgba(0, 0, 0, 0.15);
+    transition: background-color 0.3s ease, transform 0.3s ease;
+}
+
+[data-theme='dark'] .health-bar {
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+}
+
+.health-bar.active {
+    background-color: #34d399;
+    /* Emerald Green */
+    border-color: #10b981;
+}
+
+[data-theme='dark'] .health-bar.active {
+    background-color: #34d399;
+    /* Emerald Green */
+    border-color: #34d399;
 }
 
 main {

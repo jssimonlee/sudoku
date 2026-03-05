@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === DOM Elements ===
     const boardElement = document.getElementById('sudoku-board');
-    const mistakeCountEl = document.getElementById('mistake-count');
+    const healthBars = document.querySelectorAll('.health-bar');
     const timerEl = document.getElementById('timer');
     const difficultySelect = document.getElementById('difficulty');
 
@@ -470,7 +470,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateMistakesDisplay() {
-        mistakeCountEl.textContent = mistakes;
+        healthBars.forEach((bar, index) => {
+            if (index < (3 - mistakes)) {
+                bar.classList.add('active');
+            } else {
+                bar.classList.remove('active');
+            }
+        });
     }
 
     function updateNumpadState() {
