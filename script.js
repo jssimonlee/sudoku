@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isNotesMode = false;
     let notes = [];
     let selectedNumber = null; // Currently active number for quick entry
+    let selectedNumberSource = null; // 'user' | 'auto'
 
     let timerInterval;
     let secondsElapsed = 0;
@@ -130,19 +131,82 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Helper: set the active selected number and highlight the numpad button
-    function setSelectedNumber(val) {
+    function setSelectedNumber(val, source = 'user') {
         selectedNumber = val;
+        selectedNumberSource = source;
+        refreshSelectedNumberUI();
+    }
+
+    function clearSelectedNumber(onlyAuto = false) {
+        if (onlyAuto && selectedNumberSource !== 'auto') return;
+        selectedNumber = null;
+        selectedNumberSource = null;
+        refreshSelectedNumberUI();
+    }
+
+    function refreshSelectedNumberUI() {
         numButtons.forEach(btn => {
             const v = parseInt(btn.getAttribute('data-val'));
-            btn.classList.toggle('num-selected', v === val
+            btn.classList.toggle('num-selected', v === selectedNumber
                 && !btn.classList.contains('completed')
                 && !btn.classList.contains('disabled'));
         });
     }
 
-    function clearSelectedNumber() {
-        selectedNumber = null;
-        numButtons.forEach(btn => btn.classList.remove('num-selected'));
+    function getCellCandidates(r, c) {
+        if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return [];
+
+        const candidates = [];
+        for (let val = 1; val <= 9; val++) {
+            if (isSafeBoard(board, r, c, val)) {
+                candidates.push(val);
+            }
+        }
+        return candidates;
+    }
+
+    function getOnlyRemainingNumber() {
+        const counts = Array(10).fill(0);
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (board[r][c] !== 0) counts[board[r][c]]++;
+            }
+        }
+
+        const remaining = [];
+        for (let val = 1; val <= 9; val++) {
+            if (counts[val] < 9) remaining.push(val);
+        }
+
+        return remaining.length === 1 ? remaining[0] : null;
+    }
+
+    function getAutoFillNumber(r, c) {
+        if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return null;
+
+        const candidates = getCellCandidates(r, c);
+        if (candidates.length === 1) return candidates[0];
+
+        return getOnlyRemainingNumber();
+    }
+
+    function syncSelectedNumberForCell(r, c) {
+        const autoVal = getAutoFillNumber(r, c);
+
+        if (autoVal !== null) {
+            if (selectedNumberSource !== 'user') {
+                setSelectedNumber(autoVal, 'auto');
+            }
+            return autoVal;
+        }
+
+        clearSelectedNumber(true);
+        return null;
+    }
+
+    function getInputNumberForCell(r, c) {
+        const autoVal = getAutoFillNumber(r, c);
+        return autoVal !== null ? autoVal : selectedNumber;
     }
 
     // Auto-pause when tab goes invariant/hidden, or window loses focus (e.g. changing macOS Spaces)
@@ -183,13 +247,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (e.key.toLowerCase() === 'f' || e.key === '`' || e.key === '~' || e.code === 'Space' || e.key === 'Escape') {
             // F / ` / ~ / Space / Esc: same as double-click — fill selected number into selected empty cell
             e.preventDefault();
-            if (selectedCell !== null && selectedNumber !== null) {
+            if (selectedCell !== null) {
                 const { r, c } = selectedCell;
                 if (board[r][c] === 0 && initialBoard[r][c] === 0) {
+                    const inputVal = getInputNumberForCell(r, c);
+                    if (inputVal === null) return;
                     if (isNotesMode) {
-                        inputNote(selectedNumber);
+                        inputNote(inputVal);
                     } else {
-                        inputNumber(selectedNumber);
+                        inputNumber(inputVal);
                     }
                 }
             }
@@ -267,12 +333,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 cell.addEventListener('dblclick', () => {
                     if (board[r][c] !== 0) return;        // already filled
                     if (initialBoard[r][c] !== 0) return; // initial clue
-                    if (selectedNumber === null) return;   // nothing selected
                     selectCell(r, c);
+                    const inputVal = getInputNumberForCell(r, c);
+                    if (inputVal === null) return;   // nothing selected
                     if (isNotesMode) {
-                        inputNote(selectedNumber);
+                        inputNote(inputVal);
                     } else {
-                        inputNumber(selectedNumber);
+                        inputNumber(inputVal);
                     }
                 });
                 boardElement.appendChild(cell);
@@ -292,6 +359,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const targetCell = getCellElement(r, c);
         targetCell.classList.add('selected');
+
+        syncSelectedNumberForCell(r, c);
 
         const cellValue = board[r][c];
 
@@ -526,7 +595,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 btn.classList.remove('disabled');
             }
         });
-
+        if (selectedNumber !== null && counts[selectedNumber] >= 9) {
+            clearSelectedNumber();
+        } else if (selectedCell && board[selectedCell.r][selectedCell.c] === 0) {
+            syncSelectedNumberForCell(selectedCell.r, selectedCell.c);
+        } else {
+            refreshSelectedNumberUI();
+        }
     }
 
     // Cascade wave animation for a completed number
