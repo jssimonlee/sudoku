@@ -617,6 +617,16 @@ main {
     border-color: rgba(255, 255, 255, 0.05);
 }
 
+.num-btn.completed.num-selected,
+.num-btn.disabled.num-selected {
+    opacity: 1;
+    color: var(--accent-color);
+    border-color: var(--accent-color);
+    background: rgba(59, 130, 246, 0.15);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
+    transform: scale(1.08);
+}
+
 
 /* Responsive adjustments for Numpad */
 @media (max-width: 480px) {

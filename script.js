@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedCell = null;
     let mistakes = 0;
     const MAX_MISTAKES = 3;
+    const AUTO_FILL_KEY = 'f';
     let history = [];
     let isPaused = false;
     let isGreenComplete = false;
@@ -147,9 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function refreshSelectedNumberUI() {
         numButtons.forEach(btn => {
             const v = parseInt(btn.getAttribute('data-val'));
-            btn.classList.toggle('num-selected', v === selectedNumber
-                && !btn.classList.contains('completed')
-                && !btn.classList.contains('disabled'));
+            btn.classList.toggle('num-selected', v === selectedNumber);
         });
     }
 
@@ -163,6 +162,55 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         return candidates;
+    }
+
+    function getUnitMissingValue(cells) {
+        let emptyCount = 0;
+        const used = new Set();
+
+        for (const [row, col] of cells) {
+            const val = board[row][col];
+            if (val === 0) {
+                emptyCount++;
+                continue;
+            }
+
+            used.add(val);
+        }
+
+        if (emptyCount !== 1) return null;
+
+        for (let val = 1; val <= 9; val++) {
+            if (!used.has(val)) return val;
+        }
+
+        return null;
+    }
+
+    function getLastUnitCompletionNumber(r, c) {
+        if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return null;
+
+        const rowCells = Array.from({ length: 9 }, (_, col) => [r, col]);
+        const colCells = Array.from({ length: 9 }, (_, row) => [row, c]);
+        const boxCells = [];
+        const boxRowStart = Math.floor(r / 3) * 3;
+        const boxColStart = Math.floor(c / 3) * 3;
+
+        for (let row = boxRowStart; row < boxRowStart + 3; row++) {
+            for (let col = boxColStart; col < boxColStart + 3; col++) {
+                boxCells.push([row, col]);
+            }
+        }
+
+        const missingValues = [
+            getUnitMissingValue(rowCells),
+            getUnitMissingValue(colCells),
+            getUnitMissingValue(boxCells)
+        ].filter((val) => val !== null);
+
+        if (missingValues.length === 0) return null;
+
+        return missingValues.every((val) => val === missingValues[0]) ? missingValues[0] : null;
     }
 
     function getOnlyRemainingNumber() {
@@ -184,6 +232,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function getAutoFillNumber(r, c) {
         if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return null;
 
+        const unitCompletionVal = getLastUnitCompletionNumber(r, c);
+        if (unitCompletionVal !== null) return unitCompletionVal;
+
         const candidates = getCellCandidates(r, c);
         if (candidates.length === 1) return candidates[0];
 
@@ -204,9 +255,34 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    function getInputNumberForCell(r, c) {
+    function applyShortcutInputToCell(r, c) {
+        if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return false;
+
+        selectCell(r, c);
+
         const autoVal = getAutoFillNumber(r, c);
-        return autoVal !== null ? autoVal : selectedNumber;
+        if (autoVal !== null) {
+            inputNumber(autoVal);
+            setSelectedNumber(autoVal);
+            return true;
+        }
+
+        if (selectedNumber === null) return false;
+
+        if (isNotesMode) {
+            inputNote(selectedNumber);
+        } else {
+            inputNumber(selectedNumber);
+        }
+
+        return true;
+    }
+
+    function applyShortcutInputToSelectedCell() {
+        if (selectedCell === null) return false;
+
+        const { r, c } = selectedCell;
+        return applyShortcutInputToCell(r, c);
     }
 
     // Auto-pause when tab goes invariant/hidden, or window loses focus (e.g. changing macOS Spaces)
@@ -244,21 +320,13 @@ document.addEventListener('DOMContentLoaded', () => {
             undoMove();
         } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
             handleArrowNavigation(e.key);
-        } else if (e.key.toLowerCase() === 'f' || e.key === '`' || e.key === '~' || e.code === 'Space' || e.key === 'Escape') {
-            // F / ` / ~ / Space / Esc: same as double-click — fill selected number into selected empty cell
+        } else if (e.code === 'Space') {
             e.preventDefault();
-            if (selectedCell !== null) {
-                const { r, c } = selectedCell;
-                if (board[r][c] === 0 && initialBoard[r][c] === 0) {
-                    const inputVal = getInputNumberForCell(r, c);
-                    if (inputVal === null) return;
-                    if (isNotesMode) {
-                        inputNote(inputVal);
-                    } else {
-                        inputNumber(inputVal);
-                    }
-                }
-            }
+            togglePause();
+        } else if (e.key.toLowerCase() === AUTO_FILL_KEY) {
+            // F: same as double-click on the selected empty cell
+            e.preventDefault();
+            applyShortcutInputToSelectedCell();
         }
     });
 
@@ -329,18 +397,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         setSelectedNumber(val);
                     }
                 });
-                // Double-click on empty cell → enter selected number
+                // Double-click on an empty cell to auto-fill it, or place the selected number
                 cell.addEventListener('dblclick', () => {
                     if (board[r][c] !== 0) return;        // already filled
                     if (initialBoard[r][c] !== 0) return; // initial clue
-                    selectCell(r, c);
-                    const inputVal = getInputNumberForCell(r, c);
-                    if (inputVal === null) return;   // nothing selected
-                    if (isNotesMode) {
-                        inputNote(inputVal);
-                    } else {
-                        inputNumber(inputVal);
-                    }
+                    applyShortcutInputToCell(r, c);
                 });
                 boardElement.appendChild(cell);
             }
