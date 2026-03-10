@@ -285,6 +285,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return applyShortcutInputToCell(r, c);
     }
 
+    function isAutoFillShortcut(event) {
+        return event.key.toLowerCase() === AUTO_FILL_KEY
+            || event.key === '`'
+            || event.key === '~'
+            || event.key === 'Escape'
+            || event.code === 'Space';
+    }
+
     // Auto-pause when tab goes invariant/hidden, or window loses focus (e.g. changing macOS Spaces)
     function handleAutoPause() {
         if (!isPaused && !overlay.classList.contains('active')) {
@@ -320,11 +328,8 @@ document.addEventListener('DOMContentLoaded', () => {
             undoMove();
         } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
             handleArrowNavigation(e.key);
-        } else if (e.code === 'Space') {
-            e.preventDefault();
-            togglePause();
-        } else if (e.key.toLowerCase() === AUTO_FILL_KEY) {
-            // F: same as double-click on the selected empty cell
+        } else if (isAutoFillShortcut(e)) {
+            // F / ` / ~ / Space / Esc: same as double-click on the selected empty cell
             e.preventDefault();
             applyShortcutInputToSelectedCell();
         }
