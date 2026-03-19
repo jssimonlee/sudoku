@@ -23,6 +23,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const healthBars = document.querySelectorAll('.health-bar');
     const timerEl = document.getElementById('timer');
     const difficultySelect = document.getElementById('difficulty');
+    const DIFFICULTY_SETTINGS = {
+        easy: { cluesTarget: 51, maxAttempts: 25, fallbackTargets: [51, 52, 53] },
+        medium: { cluesTarget: 41, maxAttempts: 35, fallbackTargets: [41, 42, 43] },
+        hard: { cluesTarget: 31, maxAttempts: 45, fallbackTargets: [31, 32, 33] },
+        expert: { cluesTarget: 27, maxAttempts: 60, fallbackTargets: [27, 28, 29, 30] }
+    };
 
     const numButtons = document.querySelectorAll('.num-btn');
     const btnUndo = document.getElementById('btn-undo');
@@ -815,20 +821,22 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${m}:${s}`;
     }
 
-    // === Sudoku Generator Engine (Backtracking + Logic Validation) ===
-    function generateSudoku() {
-        const diff = difficultySelect.value;
-        // Number of clues to KEEP (easy = more clues, hard = fewer)
-        const cluesTarget = diff === 'easy' ? 51 : diff === 'hard' ? 31 : 41;
-        const maxAttempts = 40;
+    function getDifficultySettings() {
+        return DIFFICULTY_SETTINGS[difficultySelect.value] || DIFFICULTY_SETTINGS.medium;
+    }
 
+    function applyGeneratedPuzzle(generated) {
+        solution = generated.solution;
+        board = generated.puzzle;
+        initialBoard = JSON.parse(JSON.stringify(board));
+    }
+
+    function tryGeneratePuzzle(cluesTarget, maxAttempts) {
         for (let attempt = 0; attempt < maxAttempts; attempt++) {
-            // 1. Generate a fresh full solved board
             const sol = Array(9).fill(null).map(() => Array(9).fill(0));
             fillDiagonal(sol);
             solveSudoku(sol);
 
-            // 2. Remove cells ensuring unique solution at each step
             const puzzle = JSON.parse(JSON.stringify(sol));
             const positions = shuffleArray([...Array(81).keys()]);
             let cluesLeft = 81;
@@ -850,30 +858,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 3. Validate: can this puzzle be solved with LOGIC ONLY (no guessing)?
-            if (isLogicallySolvable(puzzle)) {
-                solution = sol;
-                board = puzzle;
-                initialBoard = JSON.parse(JSON.stringify(board));
-                return; // Success
+            if (cluesLeft !== cluesTarget) continue;
+            if (!isLogicallySolvable(puzzle)) continue;
+
+            return { solution: sol, puzzle };
+        }
+
+        return null;
+    }
+
+    // === Sudoku Generator Engine (Backtracking + Logic Validation) ===
+    function generateSudoku() {
+        const settings = getDifficultySettings();
+
+        for (const cluesTarget of settings.fallbackTargets) {
+            const generated = tryGeneratePuzzle(cluesTarget, settings.maxAttempts);
+            if (generated) {
+                applyGeneratedPuzzle(generated);
+                return;
             }
         }
 
-        // Fallback: If no logic-only puzzle found after maxAttempts, use best we have
-        // (rare edge case, shouldn't happen often)
-        const sol = Array(9).fill(null).map(() => Array(9).fill(0));
-        fillDiagonal(sol);
-        solveSudoku(sol);
-        solution = sol;
-        board = JSON.parse(JSON.stringify(sol));
-        const diff2 = difficultySelect.value;
-        let cellsToRemove = diff2 === 'easy' ? 30 : diff2 === 'hard' ? 50 : 40;
-        while (cellsToRemove > 0) {
-            let i = Math.floor(Math.random() * 9);
-            let j = Math.floor(Math.random() * 9);
-            if (board[i][j] !== 0) { board[i][j] = 0; cellsToRemove--; }
+        // Keep generating only validated puzzles rather than falling back to random removals.
+        const safestTarget = settings.fallbackTargets[settings.fallbackTargets.length - 1];
+        let generated = null;
+        while (!generated) {
+            generated = tryGeneratePuzzle(safestTarget, settings.maxAttempts);
         }
-        initialBoard = JSON.parse(JSON.stringify(board));
+        applyGeneratedPuzzle(generated);
     }
 
     // Shuffle an array (Fisher-Yates)
@@ -938,6 +950,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
         );
 
+        const units = getUnits();
         let progress = true;
         while (progress) {
             progress = false;
@@ -958,7 +971,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // --- Hidden Singles (check each unit) ---
-            const units = getUnits();
             for (const unit of units) {
                 for (let val = 1; val <= 9; val++) {
                     const possibleCells = unit.filter(([r, c]) => candidates[r][c].has(val));
