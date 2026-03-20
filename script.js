@@ -39,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnNewGame = document.getElementById('btn-new-game');
 
     const overlay = document.getElementById('game-overlay');
+    const overlayContent = document.getElementById('game-overlay-content');
+    const overlayKicker = document.getElementById('overlay-kicker');
     const overlayTitle = document.getElementById('overlay-title');
     const overlayMsg = document.getElementById('overlay-msg');
     const overlayBtn = document.getElementById('overlay-btn');
@@ -267,6 +269,18 @@ document.addEventListener('DOMContentLoaded', () => {
         selectCell(r, c);
 
         const autoVal = getAutoFillNumber(r, c);
+        if (isNotesMode) {
+            const noteVal = selectedNumber ?? autoVal;
+            if (noteVal === null) return false;
+
+            if (selectedNumber === null && autoVal !== null) {
+                setSelectedNumber(autoVal, 'auto');
+            }
+
+            inputNote(noteVal);
+            return true;
+        }
+
         if (autoVal !== null) {
             inputNumber(autoVal);
             setSelectedNumber(autoVal);
@@ -274,12 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (selectedNumber === null) return false;
-
-        if (isNotesMode) {
-            inputNote(selectedNumber);
-        } else {
-            inputNumber(selectedNumber);
-        }
+        inputNumber(selectedNumber);
 
         return true;
     }
@@ -456,6 +465,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function inputNumber(val) {
+        if (isNotesMode) {
+            inputNote(val);
+            return;
+        }
+
         if (!selectedCell) return;
         const { r, c } = selectedCell;
 
@@ -729,20 +743,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function gameOver(isWin) {
         clearInterval(timerInterval);
+        overlayContent.classList.remove('win-state', 'error-state');
 
         if (isWin) {
-            overlayTitle.textContent = "Excellent!";
+            overlayContent.classList.add('win-state');
+            overlayKicker.textContent = "퍼즐 완성";
+            overlayTitle.textContent = "완벽한 마무리";
             overlayTitle.className = "";
             const timeStr = formatTime(secondsElapsed);
-            overlayMsg.textContent = `You solved the puzzle in ${timeStr} with ${mistakes}/3 mistakes.`;
+            overlayMsg.textContent = `플레이 시간 ${timeStr}\n실수 ${mistakes}/3회로 퍼즐을 완성했습니다.`;
+            overlayBtn.textContent = "새 퍼즐 시작";
             // Play win cascade then show overlay
             celebrateAllNumbers(() => {
                 overlay.classList.add('active');
             });
         } else {
-            overlayTitle.textContent = "Game Over!";
+            overlayContent.classList.add('error-state');
+            overlayKicker.textContent = "도전 종료";
+            overlayTitle.textContent = "한 번 더 도전해보세요";
             overlayTitle.className = "error-title";
-            overlayMsg.textContent = "You made 3 mistakes. Try again!";
+            overlayMsg.textContent = "실수 3회를 모두 사용했습니다.\n새 게임으로 바로 다시 시작할 수 있습니다.";
+            overlayBtn.textContent = "새 게임 시작";
             overlay.classList.add('active');
         }
     }
