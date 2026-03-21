@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const AUTO_FILL_KEY = 'f';
     let history = [];
     let isPaused = false;
+    let isRoundFinished = false;
     let isGreenComplete = false;
     let isNotesMode = false;
     let notes = [];
@@ -317,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Auto-pause when tab goes invariant/hidden, or window loses focus (e.g. changing macOS Spaces)
     function handleAutoPause() {
+        if (isRoundFinished) return;
         if (!isPaused && !overlay.classList.contains('active')) {
             togglePause();
         }
@@ -330,6 +332,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('keydown', (e) => {
         if (overlay.classList.contains('active')) return;
+        if (isRoundFinished) return;
         if (isPaused) {
             // Allow space to unpause
             if (e.code === 'Space') { e.preventDefault(); togglePause(); }
@@ -374,6 +377,7 @@ document.addEventListener('DOMContentLoaded', () => {
         notes = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => new Set()));
 
         mistakes = 0;
+        isRoundFinished = false;
         updateMistakesDisplay();
         history = [];
         selectedCell = null;
@@ -387,6 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function togglePause() {
+        if (isRoundFinished) return;
         if (overlay.classList.contains('active')) return;
         isPaused = !isPaused;
         if (isPaused) {
@@ -436,6 +441,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function selectCell(r, c) {
+        if (isRoundFinished) return;
         if (overlay.classList.contains('active')) return;
 
         selectedCell = { r, c };
@@ -750,6 +756,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function gameOver(isWin) {
         clearInterval(timerInterval);
+        isRoundFinished = true;
+        isPaused = false;
+        pauseOverlay.classList.remove('active');
+        pauseIcon.className = 'fas fa-pause';
         overlayContent.classList.remove('win-state', 'error-state');
 
         if (isWin) {
