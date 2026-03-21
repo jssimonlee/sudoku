@@ -88,6 +88,15 @@ document.addEventListener('DOMContentLoaded', () => {
     btnNotes.addEventListener('click', () => {
         isNotesMode = !isNotesMode;
         btnNotes.classList.toggle('notes-active', isNotesMode);
+
+        if (isNotesMode) {
+            clearSelectedNumber(true);
+            return;
+        }
+
+        if (selectedCell && board[selectedCell.r][selectedCell.c] === 0) {
+            syncSelectedNumberForCell(selectedCell.r, selectedCell.c);
+        }
     });
 
     completeColorToggleBtn.addEventListener('click', () => {
@@ -250,6 +259,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function syncSelectedNumberForCell(r, c) {
+        if (isNotesMode) {
+            clearSelectedNumber(true);
+            return null;
+        }
+
         const autoVal = getAutoFillNumber(r, c);
 
         if (autoVal !== null) {
@@ -267,20 +281,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return false;
 
         selectCell(r, c);
-
-        const autoVal = getAutoFillNumber(r, c);
         if (isNotesMode) {
-            const noteVal = selectedNumber ?? autoVal;
-            if (noteVal === null) return false;
-
-            if (selectedNumber === null && autoVal !== null) {
-                setSelectedNumber(autoVal, 'auto');
-            }
-
-            inputNote(noteVal);
+            if (selectedNumberSource !== 'user' || selectedNumber === null) return false;
+            inputNote(selectedNumber);
             return true;
         }
 
+        const autoVal = getAutoFillNumber(r, c);
         if (autoVal !== null) {
             inputNumber(autoVal);
             setSelectedNumber(autoVal);
