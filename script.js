@@ -24,6 +24,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const healthBars = document.querySelectorAll('.health-bar');
     const timerEl = document.getElementById('timer');
     const difficultySelect = document.getElementById('difficulty');
+    const DIFFICULTY_STORAGE_KEY = 'sudoku-difficulty';
     const DIFFICULTY_SETTINGS = {
         easy: { cluesTarget: 51, maxAttempts: 25, fallbackTargets: [51, 52, 53] },
         medium: { cluesTarget: 41, maxAttempts: 35, fallbackTargets: [41, 42, 43] },
@@ -54,7 +55,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === Init Game ===
     initTheme();
+    restoreDifficulty();
     initGame();
+
+    function restoreDifficulty() {
+        try {
+            const savedDifficulty = localStorage.getItem(DIFFICULTY_STORAGE_KEY);
+            if (Object.prototype.hasOwnProperty.call(DIFFICULTY_SETTINGS, savedDifficulty)) {
+                difficultySelect.value = savedDifficulty;
+            }
+        } catch {
+            // Keep the default difficulty if browser storage is unavailable.
+        }
+    }
+
+    function saveDifficulty() {
+        try {
+            localStorage.setItem(DIFFICULTY_STORAGE_KEY, difficultySelect.value);
+        } catch {
+            // Allow playing even if browser storage is unavailable.
+        }
+    }
 
     function initTheme() {
         const currentTheme = document.documentElement.getAttribute('data-theme');
@@ -77,7 +98,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    difficultySelect.addEventListener('change', initGame);
+    difficultySelect.addEventListener('change', () => {
+        saveDifficulty();
+        initGame();
+    });
     btnNewGame.addEventListener('click', initGame);
     overlayBtn.addEventListener('click', initGame);
 
