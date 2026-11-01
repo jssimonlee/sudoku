@@ -562,6 +562,7 @@ main {
 }
 
 .num-btn {
+    position: relative;
     background: var(--surface-color);
     backdrop-filter: blur(12px);
     border: 1px solid var(--surface-border);
@@ -611,20 +612,42 @@ main {
 
 
 .num-btn.disabled {
-    opacity: 0.15;
     pointer-events: none;
-    background: transparent;
-    border-color: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    background: rgba(128, 128, 128, 0.08);
+    border-color: var(--surface-border);
+}
+
+/* Completion stays visible independently of the selected-number highlight. */
+.num-btn.completed::after,
+.num-btn.disabled::after {
+    content: '\2713';
+    position: absolute;
+    top: 3px;
+    right: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: inherit;
 }
 
 .num-btn.completed.num-selected,
 .num-btn.disabled.num-selected {
-    opacity: 1;
-    color: var(--accent-color);
     border-color: var(--accent-color);
-    background: rgba(59, 130, 246, 0.15);
+    outline: 2px solid var(--accent-color);
+    outline-offset: 2px;
     box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
     transform: scale(1.08);
+}
+
+.num-btn.completed.num-selected {
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.12);
+}
+
+.num-btn.disabled.num-selected {
+    color: var(--text-secondary);
+    background: rgba(128, 128, 128, 0.08);
 }
 
 
