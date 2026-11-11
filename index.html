@@ -30,6 +30,10 @@
                         title="콤보 모드: 입력 순서로 족보를 만들어 점수 얻기">
                         <i class="fas fa-dice"></i>
                     </button>
+                    <!-- TOP 10 leaderboard (shown only when a server is configured) -->
+                    <button id="lb-toggle" class="icon-btn" aria-label="TOP 10 순위표" title="TOP 10 순위표" hidden>
+                        <i class="fas fa-trophy"></i>
+                    </button>
                     <!-- Pause button moved here as small icon -->
                     <button id="btn-pause" class="icon-btn" aria-label="Pause Game" title="게임 일시정지 / 재개">
                         <i class="fas fa-pause" id="pause-icon"></i>
@@ -165,6 +169,47 @@
                 </div>
             </div>
 
+            <!-- TOP 10 Leaderboard Popup -->
+            <div class="combo-modal" id="lb-modal" role="dialog" aria-modal="true" aria-labelledby="lb-modal-title" hidden>
+                <div class="combo-modal-content lb-modal-content">
+                    <div class="combo-modal-header">
+                        <h3 id="lb-modal-title"><i class="fas fa-trophy"></i> TOP 10</h3>
+                        <button class="combo-modal-close" id="lb-modal-close" type="button" aria-label="닫기">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <form class="lb-submit" id="lb-submit" hidden>
+                        <p class="lb-submit-title">TOP 10 진입!</p>
+                        <ul class="lb-qualify" id="lb-qualify"></ul>
+                        <label class="lb-initials-label" for="lb-initials">이니셜 (영문·숫자 3글자)</label>
+                        <input id="lb-initials" class="lb-initials" maxlength="3" autocomplete="off"
+                            autocapitalize="characters" spellcheck="false" inputmode="text">
+                        <div class="lb-turnstile" id="lb-turnstile" hidden></div>
+                        <p class="lb-message" id="lb-submit-msg" role="status"></p>
+                        <div class="lb-actions">
+                            <button type="button" class="lb-btn" id="lb-skip">건너뛰기</button>
+                            <button type="submit" class="lb-btn lb-btn-primary" id="lb-send">등록</button>
+                        </div>
+                    </form>
+
+                    <p class="lb-result" id="lb-result" role="status" hidden></p>
+                    <div class="lb-tabs" id="lb-tabs" role="tablist">
+                        <button type="button" role="tab" data-kind="normal">일반</button>
+                        <button type="button" role="tab" data-kind="combo-time">콤보 시간</button>
+                        <button type="button" role="tab" data-kind="combo-score">콤보 점수</button>
+                    </div>
+                    <div class="lb-diffs" id="lb-diffs">
+                        <button type="button" data-diff="easy">Easy</button>
+                        <button type="button" data-diff="medium">Medium</button>
+                        <button type="button" data-diff="hard">Hard</button>
+                        <button type="button" data-diff="expert">Expert</button>
+                    </div>
+                    <ol class="lb-table" id="lb-table"></ol>
+                    <p class="lb-status" id="lb-status" hidden></p>
+                </div>
+            </div>
+
             <div class="controls-panel">
                 <div class="numpad" id="numpad">
                     <!-- 1 to 9 Numpad Buttons -->
@@ -194,6 +239,8 @@
     </div>
     <script src="effects.js"></script>
     <script src="combo.js"></script>
+    <script src="leaderboard-config.js"></script>
+    <script src="leaderboard.js"></script>
     <script src="script.js"></script>
 </body>
 

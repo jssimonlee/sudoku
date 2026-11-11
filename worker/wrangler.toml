@@ -1,0 +1,22 @@
+# Cloudflare Worker for the Sudoku TOP 10 leaderboard.
+# Deploy from this folder:  wrangler deploy
+name = "sudoku-api"
+main = "src/index.js"
+compatibility_date = "2025-06-01"
+workers_dev = true
+preview_urls = false
+
+[vars]
+# Browsers may call the API only from these origins (comma separated).
+# Note: CORS stops other websites, not scripts. The Worker validates every submit.
+ALLOWED_ORIGINS = "https://jssimonlee.github.io,http://localhost:8765"
+
+# Shared D1 database. Sudoku uses only the sudoku_* tables (see schema.sql).
+[[d1_databases]]
+binding = "DB"
+database_name = "mydb"
+database_id = "ba85cd4a-6ed4-451e-9883-4593bbc00f8e"
+
+# Optional secrets (set with `wrangler secret put <NAME>`, never commit them):
+#   RATE_LIMIT_SALT   random string mixed into the IP hash
+#   TURNSTILE_SECRET  Cloudflare Turnstile secret key; when set, submits need a Turnstile token

@@ -15,6 +15,7 @@
 - **메모 모드 (Notes ✏️)** – 빈 칸에 예상 숫자 1~9 기입, 재클릭 시 삭제, 정답 확정 시 관련 셀 자동 제거 (Undo로 함께 복원)
 - **번호 선택 & 빠른 입력** – 번호 하나를 선택해두고 빈 칸 더블클릭 또는 **F / ` / ~ / Space / Esc 키**로 빠르게 입력
 - **일시정지 (Pause ⏸)** – 보드를 가리고 타이머 정지, 중앙 ▶ 또는 **일시정지 상태에서만 Space 키**로 재개 (일시정지 중에는 입력 불가)
+- **TOP 10 순위표 (🏆)** – 모드별 상위 10개 기록을 서버에 저장, 순위에 들 때만 이니셜 입력 후 전송
 - **자동 저장** – 진행 중인 게임(보드, 메모, 시간, 실수, 콤보 점수)을 브라우저에 저장해 새로고침해도 이어서 플레이
 - **실행 취소 (Undo)** – 이전 입력으로 되돌리기
 - **반응형** – 모바일·데스크톱 모두 최적화
@@ -94,6 +95,73 @@
 - **열기 🔥**: 실수 없이 연속 확정하면 숫자가 오르고 패널 테두리가 달아오릅니다. 5연속부터 효과가 한 단계 강해집니다 (점수에는 영향 없음).
 - **설정**: 헤더의 ✨ 버튼(또는 족보 팝업의 **효과·소리 설정**)에서 콤보 효과, 소리, 진동을 켜고 끌 수 있고, 패널의 🔊 버튼으로 소리를 바로 끌 수 있습니다. 설정은 브라우저에 저장됩니다.
 - OS의 "동작 줄이기"가 켜져 있으면 흔들림과 컨페티를 생략합니다.
+
+## TOP 10 순위표 🏆
+
+모드별로 상위 10개 기록만 서버(Cloudflare Worker + D1)에 저장합니다. 로그인은 없습니다.
+
+| 순위표 | 기준 | 동점 |
+|---|---|---|
+| 일반 Easy / Medium / Hard / Expert | 시간이 짧은 순 | 실수 적은 순 → 먼저 등록한 기록 |
+| 콤보 시간 × 4 | 시간이 짧은 순 | 실수 적은 순 → 먼저 등록한 기록 |
+| 콤보 점수 × 4 | 점수가 높은 순 | 시간이 짧은 순 → 먼저 등록한 기록 |
+
+- 클리어하면 **저장해 둔 순위표(캐시)** 와 먼저 비교합니다. 순위표는 좋아지기만 하므로, 캐시의 10등보다 못하면 실제로도 들 수 없어 **서버에 요청하지 않습니다.**
+- 캐시 기준으로 10등 안에 들면 이니셜(영문·숫자 3글자)을 입력해 등록합니다. 서버가 실제 순위로 다시 판정하고 최신 순위표를 돌려줘 캐시를 바꿉니다.
+- 콤보 모드는 한 판으로 시간·점수 두 순위표를 함께 판정합니다 (이니셜은 한 번만).
+- 헤더의 🏆 버튼으로 순위표를 볼 수 있습니다 (서버 주소가 설정됐을 때만 보임).
+
+### 보안
+
+- 모든 쿼리는 바인딩(`prepare().bind()`)으로 실행해 SQL 인젝션을 막습니다.
+- 이니셜은 서버에서 `A-Z 0-9` 3글자만 허용하고, 화면에는 `textContent`로만 출력합니다.
+- 서버 검증: 난이도별 최소 시간, 콤보 점수 최대치, 실수 0~2회, 금지 이니셜, 요청 크기.
+- 같은 IP(해시로만 저장)는 10분에 5번까지만 등록할 수 있습니다.
+- CORS로 허용한 주소에서만 브라우저 등록이 됩니다 (스크립트 직접 호출은 위 검증으로 막음).
+- 선택: Cloudflare Turnstile 봇 확인.
+- 삭제·초기화 API는 없습니다. 관리는 `wrangler d1 execute`로 직접 합니다.
+
+### 서버 설정 (wrangler)
+
+`worker/` 폴더에 Worker 코드(`src/index.js`), 설정(`wrangler.toml`), 테이블(`schema.sql`)이 있습니다.
+D1 `mydb`를 다른 프로젝트와 함께 쓰므로 테이블과 인덱스는 모두 `sudoku_` 접두어를 씁니다.
+
+```bash
+# 1. 로그인 (처음 한 번, 브라우저가 열림). 이미 로그인돼 있으면 생략
+wrangler login
+wrangler whoami
+
+# 2. 테이블 만들기 (worker 폴더에서)
+cd worker
+wrangler d1 execute mydb --remote --file=schema.sql
+
+# 3. (선택) 비밀 값
+wrangler secret put RATE_LIMIT_SALT       # 아무 긴 무작위 문자열
+wrangler secret put TURNSTILE_SECRET      # Turnstile을 쓸 때만
+
+# 4. 배포 → https://sudoku-api.<계정>.workers.dev 주소가 출력됨
+wrangler deploy
+```
+
+5. 출력된 주소를 `leaderboard-config.js`의 `apiBase`에 넣고 커밋·푸시하면 순위표가 켜집니다.
+   Turnstile을 쓰면 `turnstileSiteKey`도 넣습니다.
+
+로컬 테스트:
+
+```bash
+cd worker
+wrangler d1 execute mydb --local --file=schema.sql
+wrangler dev --local --port 8787
+```
+
+`leaderboard-config.js`의 `apiBase`를 `http://127.0.0.1:8787`로 잠시 바꾸고, 게임은 `python -m http.server 8765`로 엽니다.
+
+관리 예시:
+
+```bash
+wrangler d1 execute mydb --remote --command "SELECT * FROM sudoku_scores ORDER BY board"
+wrangler d1 execute mydb --remote --command "DELETE FROM sudoku_scores WHERE id = 123"
+```
 
 ## 기술 스택 🛠️
 

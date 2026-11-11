@@ -883,9 +883,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 overlayMsg.textContent += `\n콤보 점수 ${combo.getScore().toLocaleString()}점`;
             }
             overlayBtn.textContent = "새 퍼즐 시작";
+            // Record for the TOP 10 check (leaderboard.js); captured now, before anything resets.
+            const record = {
+                mode: combo.isEnabled() ? 'combo' : 'normal',
+                difficulty: difficultySelect.value,
+                time: secondsElapsed,
+                mistakes,
+                score: combo.isEnabled() ? combo.getScore() : null
+            };
             // Play win cascade then show overlay
             celebrateAllNumbers(() => {
                 overlay.classList.add('active');
+                if (window.Leaderboard) window.Leaderboard.onWin(record);
             });
         } else {
             overlayContent.classList.add('error-state');
