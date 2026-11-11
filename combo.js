@@ -121,6 +121,7 @@
     let hand = [];               // [{ key, val }]
     let lastInput = null;        // snapshot to revert the most recent input on undo/erase
     let streak = 0;              // hands banked in a row without a mistake ("heat")
+    let bestHand = null;         // { name, points } best hand banked this game (shown in the result)
     const scoredCells = new Set();
     let counts = Array(10).fill(0);
     let flashTimer = null;
@@ -187,6 +188,7 @@
             const prevScore = score;
             score += value.points;
             streak++;
+            if (!bestHand || value.points > bestHand.points) bestHand = { name: value.name, points: value.points };
             showFlash(`${value.name} 확정 +${value.points}`, 'good');
             emitEffect('onBank', {
                 ...value,
@@ -347,9 +349,14 @@
             return score;
         },
 
+        getBestHand() {
+            return bestHand;
+        },
+
         reset() {
             score = 0;
             streak = 0;
+            bestHand = null;
             hand = [];
             lastInput = null;
             scoredCells.clear();
@@ -366,7 +373,7 @@
 
         // Snapshot for saving the game in progress (restored with setState).
         getState() {
-            return { score, streak, hand: hand.slice(), lastInput, scoredCells: [...scoredCells] };
+            return { score, streak, bestHand, hand: hand.slice(), lastInput, scoredCells: [...scoredCells] };
         },
 
         setState(state) {
@@ -374,6 +381,9 @@
             const isCard = (card) => card && Number.isInteger(card.key) && Number.isInteger(card.val);
             score = Number.isFinite(state.score) ? state.score : 0;
             streak = Number.isInteger(state.streak) ? state.streak : 0;
+            bestHand = state.bestHand && typeof state.bestHand.name === 'string' && Number.isInteger(state.bestHand.points)
+                ? { name: state.bestHand.name, points: state.bestHand.points }
+                : null;
             hand = Array.isArray(state.hand) ? state.hand.filter(isCard).slice(0, HAND_SIZE) : [];
             lastInput = state.lastInput && Number.isInteger(state.lastInput.key) && Array.isArray(state.lastInput.hand)
                 ? state.lastInput
@@ -404,7 +414,7 @@
                 return;
             }
 
-            lastInput = { key, score, streak, hand: hand.slice() };
+            lastInput = { key, score, streak, bestHand, hand: hand.slice() };
             scoredCells.add(key);
 
             const next = handValues().concat(val);
@@ -439,6 +449,7 @@
                 const refunded = score - lastInput.score;
                 score = lastInput.score;
                 streak = lastInput.streak;
+                bestHand = lastInput.bestHand || null;
                 hand = lastInput.hand;
                 scoredCells.delete(key);
                 lastInput = null;

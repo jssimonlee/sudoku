@@ -7,6 +7,7 @@
 -- One row per leaderboard entry. Each board keeps at most 10 rows
 -- (the Worker trims everything below 10th right after an insert).
 --   board: normal-<difficulty> | combo-time-<difficulty> | combo-score-<difficulty>
+--          | daily-<YYYY-MM-DD> (daily puzzle; only today's board is served, old ones just stay)
 --          difficulty = easy | medium | hard | expert
 CREATE TABLE IF NOT EXISTS sudoku_scores (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,

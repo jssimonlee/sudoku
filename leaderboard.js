@@ -17,7 +17,8 @@
     const WIN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;  // win checks may use an older cache
     const DIFFICULTIES = ['easy', 'medium', 'hard', 'expert'];
     const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
-    const KIND_LABEL = { normal: '일반', 'combo-time': '콤보 시간', 'combo-score': '콤보 점수' };
+    const KIND_LABEL = { normal: '일반', 'combo-time': '콤보 시간', 'combo-score': '콤보 점수', daily: '오늘의 퍼즐' };
+    const DAILY = 'daily';
     const ERROR_TEXT = {
         rate_limited: '잠시 후 다시 시도해 주세요.',
         bad_initials: '이니셜은 영문·숫자 3글자예요.',
@@ -25,7 +26,9 @@
         turnstile_failed: '봇 확인에 실패했어요. 다시 시도해 주세요.',
         forbidden_origin: '이 주소에서는 등록할 수 없어요.',
         bad_time: '기록이 비정상적으로 빨라 등록할 수 없어요.',
-        bad_score: '콤보 점수가 올바르지 않아 등록할 수 없어요.'
+        bad_score: '콤보 점수가 올바르지 않아 등록할 수 없어요.',
+        bad_date: '날짜가 바뀌어 오늘의 퍼즐 기록을 등록할 수 없어요.',
+        bad_mode: '순위표 서버가 아직 오늘의 퍼즐을 지원하지 않아요.'
     };
     // Same minimum clear times as the Worker: faster records are rejected there, so don't send them.
     const MIN_TIME = { easy: 30, medium: 45, hard: 60, expert: 75 };
@@ -64,8 +67,29 @@
     let returnFocus = null;
 
     // === Ranking (same rules as the Worker) ===
-    function boardKey(kind, difficulty) {
-        return `${kind}-${difficulty}`;
+    // A board is `${kind}-${slot}`: the slot is a difficulty, or the date for the daily puzzle.
+    function boardKey(kind, slot) {
+        return `${kind}-${slot}`;
+    }
+
+    // Today's date in Korea time, the same day the Worker uses for the daily board.
+    function todayKey() {
+        return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
+
+    function recordKinds(record) {
+        if (record.mode === DAILY) return [DAILY];
+        return record.mode === 'combo' ? ['combo-time', 'combo-score'] : ['normal'];
+    }
+
+    function recordSlot(record) {
+        return record.mode === DAILY ? record.date : record.difficulty;
+    }
+
+    function slotLabel(kind, slot) {
+        if (kind !== DAILY) return DIFF_LABEL[slot];
+        const [, month, day] = slot.split('-');
+        return `${Number(month)}/${Number(day)}`;
     }
 
     // Negative when a ranks above b. A new record has no createdAt yet, so it loses ties.
@@ -107,9 +131,11 @@
     }
 
     // Cached boards if fresh enough, otherwise one GET (falls back to a stale cache offline).
-    async function getBoards(maxAge) {
+    // needKey: a board the cache must already hold (today's daily board is new every day).
+    async function getBoards(maxAge, needKey = null) {
         const cache = readCache();
-        if (cache && Date.now() - cache.fetchedAt < maxAge) return cache;
+        const hasKey = !needKey || (cache && Array.isArray(cache.boards[needKey]));
+        if (cache && hasKey && Date.now() - cache.fetchedAt < maxAge) return cache;
         try {
             return await fetchBoards();
         } catch (err) {
@@ -131,6 +157,8 @@
 
     // === Modal ===
     function openModal() {
+        buildBoardSelect();   // the daily option carries today's date
+        boardSelect.value = boardKey(view.kind, view.difficulty);
         returnFocus = document.activeElement;
         modal.hidden = false;
     }
@@ -147,9 +175,17 @@
         statusEl.hidden = !text;
     }
 
-    // Dropdown with all 12 boards, grouped by mode.
+    // Dropdown with today's daily board and the 12 regular boards, grouped by mode.
     function buildBoardSelect() {
         boardSelect.replaceChildren();
+        const today = todayKey();
+        const dailyGroup = document.createElement('optgroup');
+        dailyGroup.label = KIND_LABEL[DAILY];
+        const dailyOpt = document.createElement('option');
+        dailyOpt.value = boardKey(DAILY, today);
+        dailyOpt.textContent = `📅 ${KIND_LABEL[DAILY]} · ${slotLabel(DAILY, today)}`;
+        dailyGroup.appendChild(dailyOpt);
+        boardSelect.appendChild(dailyGroup);
         ['normal', 'combo-time', 'combo-score'].forEach((kind) => {
             const group = document.createElement('optgroup');
             group.label = KIND_LABEL[kind];
@@ -228,7 +264,7 @@
         renderView(cache && cache.boards);
         if (!cache) setStatus('불러오는 중…');
         try {
-            const fresh = await getBoards(maxAge);
+            const fresh = await getBoards(maxAge, kind === DAILY ? boardKey(kind, difficulty) : null);
             if (view.kind === kind && view.difficulty === difficulty) renderView(fresh.boards);
         } catch {
             setStatus(cache ? '최신 순위를 불러오지 못했어요 (저장된 순위 표시 중)' : '순위를 불러오지 못했어요.');
@@ -248,6 +284,7 @@
     }
 
     function splitBoardKey(key) {
+        if (key.startsWith(`${DAILY}-`)) return [DAILY, key.slice(DAILY.length + 1)];
         const d = DIFFICULTIES.find((diff) => key.endsWith(`-${diff}`));
         return d ? [key.slice(0, -(d.length + 1)), d] : [null, null];
     }
@@ -266,6 +303,10 @@
         resultEl.hidden = true;
         openModal();
         closeBtn.focus();
+        if (difficulty === DAILY) {
+            showView(DAILY, todayKey(), { highlights: {} });
+            return;
+        }
         showView(comboOn ? 'combo-score' : 'normal', DIFFICULTIES.includes(difficulty) ? difficulty : 'medium', { highlights: {} });
     });
 
@@ -332,7 +373,7 @@
         qualifyList.replaceChildren();
         qualifying.forEach(({ kind, rank }) => {
             const li = document.createElement('li');
-            li.textContent = `${KIND_LABEL[kind]} ${DIFF_LABEL[record.difficulty]} · ${recordText(kind, record)} · 예상 ${rank}위`;
+            li.textContent = `${KIND_LABEL[kind]} ${slotLabel(kind, recordSlot(record))} · ${recordText(kind, record)} · 예상 ${rank}위`;
             qualifyList.appendChild(li);
         });
         let saved = '';
@@ -342,7 +383,7 @@
         sendBtn.disabled = false;
         resultEl.hidden = true;
         form.hidden = false;
-        view = { kind: qualifying[0].kind, difficulty: record.difficulty, highlights: {} };
+        view = { kind: qualifying[0].kind, difficulty: recordSlot(record), highlights: {} };
         renderView(readCache() && readCache().boards);
         openModal();
         initialsInput.focus();
@@ -392,9 +433,10 @@
             pending = null;
             form.hidden = true;
 
-            const kinds = record.mode === 'combo' ? ['combo-time', 'combo-score'] : ['normal'];
+            const kinds = recordKinds(record);
+            const slot = recordSlot(record);
             const lines = kinds.map((kind) => {
-                const rank = data.results[boardKey(kind, record.difficulty)];
+                const rank = data.results[boardKey(kind, slot)];
                 return rank ? `${KIND_LABEL[kind]} ${rank}위 등록!` : `${KIND_LABEL[kind]}: 아깝게 밀렸어요`;
             });
             resultEl.textContent = lines.join(' · ');
@@ -403,11 +445,11 @@
             // Mark the new record on every board it made, so flipping time ↔ score shows NEW too.
             const highlights = {};
             kinds.forEach((kind) => {
-                const key = boardKey(kind, record.difficulty);
+                const key = boardKey(kind, slot);
                 if (data.results[key]) highlights[key] = data.results[key];
             });
-            const best = kinds.find((kind) => data.results[boardKey(kind, record.difficulty)]) || kinds[0];
-            view = { kind: best, difficulty: record.difficulty, highlights };
+            const best = kinds.find((kind) => data.results[boardKey(kind, slot)]) || kinds[0];
+            view = { kind: best, difficulty: slot, highlights };
             renderView(data.boards);
             closeBtn.focus();
         } catch {
@@ -420,15 +462,17 @@
     async function onWin(record) {
         if (!record || !DIFFICULTIES.includes(record.difficulty)) return;
         if (!Number.isInteger(record.time) || record.time < MIN_TIME[record.difficulty]) return;
-        const kinds = record.mode === 'combo' ? ['combo-time', 'combo-score'] : ['normal'];
+        if (record.mode === DAILY && record.date !== todayKey()) return; // finished after midnight
+        const kinds = recordKinds(record);
+        const slot = recordSlot(record);
         let cache;
         try {
-            cache = await getBoards(WIN_MAX_AGE);
+            cache = await getBoards(WIN_MAX_AGE, record.mode === DAILY ? boardKey(DAILY, slot) : null);
         } catch {
             return; // offline and no cache: skip quietly
         }
         const qualifying = kinds
-            .map((kind) => ({ kind, rank: expectedRank(kind, cache.boards[boardKey(kind, record.difficulty)] || [], record) }))
+            .map((kind) => ({ kind, rank: expectedRank(kind, cache.boards[boardKey(kind, slot)] || [], record) }))
             .filter((q) => q.rank !== null);
         if (qualifying.length === 0) return; // not top 10: no request at all
         openSubmit(record, qualifying);

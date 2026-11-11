@@ -3,13 +3,17 @@
 //   GET  /leaderboards  -> all 12 boards (top 10 each) in one response
 //   POST /submit        -> { mode, difficulty, time, mistakes, score, initials, turnstileToken? }
 //
-// Boards: normal-<d>, combo-time-<d>, combo-score-<d> for d in easy|medium|hard|expert.
+// Boards: normal-<d>, combo-time-<d>, combo-score-<d> for d in easy|medium|hard|expert,
+// plus daily-<YYYY-MM-DD>: the daily puzzle (same board for everyone, ranked by time).
+// Only today's daily board is served and accepts records; the day changes at midnight KST.
 // The client only submits when its cached boards say the record makes the top 10;
 // the Worker always re-checks against the live data, so the cache is never trusted.
 
 const DIFFICULTIES = ['easy', 'medium', 'hard', 'expert'];
 const KINDS = ['normal', 'combo-time', 'combo-score'];
 const TOP_N = 10;
+const DAILY = 'daily';
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 // Plausibility limits. A puzzle can't be solved faster than this (seconds).
 const MIN_TIME = { easy: 30, medium: 45, hard: 60, expert: 75 };
@@ -97,29 +101,28 @@ async function submit(request, env, cors) {
     }
 
     // Which boards does this record make? Checked against the live data.
-    const kinds = entry.mode === 'combo' ? ['combo-time', 'combo-score'] : ['normal'];
+    const candidates = entryBoards(entry);
     const before = await loadBoards(env);
     const candidate = { ...entry, createdAt: now, id: Infinity };
-    const targets = kinds.filter((kind) => qualifies(kind, before[boardKey(kind, entry.difficulty)], candidate));
+    const targets = candidates.filter(({ kind, key }) => qualifies(kind, before[key] || [], candidate));
 
     const results = {};
-    kinds.forEach((kind) => { results[boardKey(kind, entry.difficulty)] = null; });
+    candidates.forEach(({ key }) => { results[key] = null; });
 
     if (targets.length > 0) {
-        const inserts = targets.map((kind) => env.DB
+        const inserts = targets.map(({ kind, key }) => env.DB
             .prepare('INSERT INTO sudoku_scores (board, initials, time_sec, mistakes, score, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
-            .bind(boardKey(kind, entry.difficulty), entry.initials, entry.time, entry.mistakes,
+            .bind(key, entry.initials, entry.time, entry.mistakes,
                 kind === 'combo-score' ? entry.score : null, now));
         // Keep only the top 10 of each touched board (runs in the same transaction).
-        const trims = targets.map((kind) => env.DB
+        const trims = targets.map(({ kind, key }) => env.DB
             .prepare(`DELETE FROM sudoku_scores WHERE board = ?1 AND id NOT IN (
                 SELECT id FROM sudoku_scores WHERE board = ?1 ORDER BY ${orderBy(kind)} LIMIT ${TOP_N})`)
-            .bind(boardKey(kind, entry.difficulty)));
+            .bind(key));
         const batchResults = await env.DB.batch([...inserts, ...trims]);
 
         const after = await loadBoards(env);
-        targets.forEach((kind, i) => {
-            const key = boardKey(kind, entry.difficulty);
+        targets.forEach(({ key }, i) => {
             const insertedId = batchResults[i].meta.last_row_id;
             const rank = after[key].findIndex((row) => row.id === insertedId);
             results[key] = rank === -1 ? null : rank + 1;
@@ -135,8 +138,11 @@ function validateEntry(body) {
     const { mode, difficulty, time, mistakes, score } = body;
     const initials = typeof body.initials === 'string' ? body.initials.trim().toUpperCase() : '';
 
-    if (mode !== 'normal' && mode !== 'combo') return { error: 'bad_mode' };
+    if (mode !== 'normal' && mode !== 'combo' && mode !== DAILY) return { error: 'bad_mode' };
     if (!DIFFICULTIES.includes(difficulty)) return { error: 'bad_difficulty' };
+    // The daily puzzle is always Medium-sized and only today's board takes records.
+    if (mode === DAILY && difficulty !== 'medium') return { error: 'bad_difficulty' };
+    if (mode === DAILY && body.date !== todayKey()) return { error: 'bad_date' };
     if (!Number.isInteger(time) || time < MIN_TIME[difficulty] || time > MAX_TIME) return { error: 'bad_time' };
     if (!Number.isInteger(mistakes) || mistakes < 0 || mistakes > MAX_MISTAKES) return { error: 'bad_mistakes' };
     if (!INITIALS_RE.test(initials)) return { error: 'bad_initials' };
@@ -149,6 +155,22 @@ function validateEntry(body) {
         comboScore = score;
     }
     return { mode, difficulty, time, mistakes, score: comboScore, initials };
+}
+
+// Today's date in Korea time (YYYY-MM-DD): the daily puzzle changes at midnight KST.
+function todayKey() {
+    return new Date(Date.now() + KST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function dailyBoardKey() {
+    return `${DAILY}-${todayKey()}`;
+}
+
+// Boards a valid entry competes on: [{ kind, key }].
+function entryBoards(entry) {
+    if (entry.mode === DAILY) return [{ kind: DAILY, key: dailyBoardKey() }];
+    const kinds = entry.mode === 'combo' ? ['combo-time', 'combo-score'] : ['normal'];
+    return kinds.map((kind) => ({ kind, key: boardKey(kind, entry.difficulty) }));
 }
 
 // === Boards ===
@@ -176,12 +198,17 @@ function qualifies(kind, list, entry) {
 }
 
 async function loadBoards(env) {
+    // Past daily boards stay in the table but are never loaded.
+    const dailyKey = dailyBoardKey();
     const { results } = await env.DB
-        .prepare('SELECT id, board, initials, time_sec, mistakes, score, created_at FROM sudoku_scores')
+        .prepare(`SELECT id, board, initials, time_sec, mistakes, score, created_at FROM sudoku_scores
+            WHERE board NOT LIKE 'daily-%' OR board = ?1`)
+        .bind(dailyKey)
         .all();
 
     const boards = {};
     KINDS.forEach((kind) => DIFFICULTIES.forEach((d) => { boards[boardKey(kind, d)] = []; }));
+    boards[dailyKey] = [];
 
     for (const row of results) {
         if (!boards[row.board]) continue;
@@ -195,7 +222,9 @@ async function loadBoards(env) {
         });
     }
     for (const [key, list] of Object.entries(boards)) {
-        const kind = KINDS.find((k) => key.startsWith(`${k}-`) && DIFFICULTIES.includes(key.slice(k.length + 1)));
+        const kind = key === dailyKey
+            ? DAILY
+            : KINDS.find((k) => key.startsWith(`${k}-`) && DIFFICULTIES.includes(key.slice(k.length + 1)));
         list.sort((a, b) => compare(kind, a, b));
         boards[key] = list.slice(0, TOP_N);
     }

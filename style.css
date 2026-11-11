@@ -705,6 +705,111 @@ main {
     white-space: pre-line;
 }
 
+.overlay p:empty {
+    display: none;
+}
+
+/* Win result: this game's numbers next to the personal bests */
+.result-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 18px;
+}
+
+.result-stats:empty {
+    display: none;
+}
+
+.result-stat {
+    position: relative;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: baseline;
+    gap: 8px;
+    padding: 6px 12px;
+    border-radius: 10px;
+    background: rgba(148, 163, 184, 0.12);
+    text-align: left;
+    font-size: 0.9rem;
+}
+
+.result-stat-label {
+    min-width: 4.2em;
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 0.8rem;
+}
+
+.result-stat strong {
+    color: var(--text-primary);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.result-stat em {
+    font-style: normal;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* The win popup carries the stat rows, so it is packed tighter to stay inside the board */
+.overlay-content.win-state {
+    padding: 22px 22px 20px;
+}
+
+.overlay-content.win-state .overlay-kicker {
+    margin-bottom: 10px;
+}
+
+.overlay-content.win-state h2 {
+    font-size: 1.7rem;
+    margin-bottom: 12px;
+}
+
+.overlay-content.win-state p {
+    margin-bottom: 12px;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.overlay-content.win-state .result-stats {
+    margin-bottom: 14px;
+}
+
+/* A personal best was just beaten */
+.result-stat.is-new {
+    background: linear-gradient(135deg, #fef3c7, #fde68a);
+    box-shadow: inset 0 0 0 2px #fbbf24;
+    animation: resultNew 0.5s ease-out 0.25s both;
+}
+
+.result-stat.is-new strong,
+.result-stat.is-new .result-stat-label {
+    color: #92400e;
+}
+
+.result-stat.is-new em {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-weight: 800;
+}
+
+@keyframes resultNew {
+    0% { transform: scale(0.92); }
+    60% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .result-stat.is-new {
+        animation: none;
+    }
+}
+
 .primary-btn {
     background: var(--accent-color);
     color: white;

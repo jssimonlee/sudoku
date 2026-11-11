@@ -48,6 +48,7 @@
                         <option value="medium" selected>Medium</option>
                         <option value="hard">Hard</option>
                         <option value="expert">Expert</option>
+                        <option value="daily">📅 Daily</option>
                     </select>
                 </div>
                 <div class="timer" id="timer">00:00</div>
@@ -73,6 +74,8 @@
                         <span class="overlay-kicker" id="overlay-kicker">게임 결과</span>
                         <h2 id="overlay-title">도전 종료</h2>
                         <p id="overlay-msg">실수 3회를 모두 사용했습니다.</p>
+                        <!-- Win only: this game's numbers and personal bests -->
+                        <div class="result-stats" id="overlay-stats"></div>
                         <button id="overlay-btn" class="primary-btn">새 게임 시작</button>
                     </div>
                 </div>
@@ -241,6 +244,7 @@
             </div>
         </main>
     </div>
+    <script src="stats.js"></script>
     <script src="effects.js"></script>
     <script src="combo.js"></script>
     <script src="leaderboard-config.js"></script>

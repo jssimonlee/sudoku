@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Combo mode hooks (combo.js); no-op fallback keeps Sudoku working without it
     const combo = window.ComboMode || {
-        isEnabled: () => false, getScore: () => 0, reset() {}, finishRound() {}, syncCounts() {},
+        isEnabled: () => false, getScore: () => 0, getBestHand: () => null, reset() {}, finishRound() {}, syncCounts() {},
         onCorrect() {}, onMistake() {}, onRemove() {}
     };
 
@@ -55,8 +55,19 @@ document.addEventListener('DOMContentLoaded', () => {
         easy: { cluesTarget: 51, maxAttempts: 25, fallbackTargets: [51, 52, 53] },
         medium: { cluesTarget: 41, maxAttempts: 35, fallbackTargets: [41, 42, 43] },
         hard: { cluesTarget: 31, maxAttempts: 45, fallbackTargets: [31, 32, 33] },
-        expert: { cluesTarget: 27, maxAttempts: 60, fallbackTargets: [27, 28, 29, 30] }
+        expert: { cluesTarget: 27, maxAttempts: 60, fallbackTargets: [27, 28, 29, 30] },
+        // Daily puzzle: Medium-sized, built from the date so everyone gets the same board.
+        daily: { cluesTarget: 41, maxAttempts: 35, fallbackTargets: [41, 42, 43] }
     };
+    const DAILY = 'daily';
+    const DIFFICULTY_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
+
+    // Personal records + daily puzzle state (stats.js); the game works without it.
+    const stats = window.PlayerStats || null;
+    let dailyDate = null;        // 'YYYY-MM-DD' while playing the daily puzzle, else null
+    let dailyPractice = false;   // today's puzzle was already cleared: replay, nothing is recorded
+    let lastRegularDifficulty = 'medium';
+    let rand = Math.random;      // swapped for a seeded generator while building the daily puzzle
 
     const numButtons = document.querySelectorAll('.num-btn');
     const btnUndo = document.getElementById('btn-undo');
@@ -72,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const overlayTitle = document.getElementById('overlay-title');
     const overlayMsg = document.getElementById('overlay-msg');
     const overlayBtn = document.getElementById('overlay-btn');
+    const overlayStats = document.getElementById('overlay-stats');
     const pauseOverlay = document.getElementById('pause-overlay');
     const pauseResumeBtn = document.getElementById('pause-resume-btn');
 
@@ -94,6 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify({
                 v: SAVE_VERSION,
                 difficulty: difficultySelect.value,
+                dailyDate,
                 board,
                 initialBoard,
                 solution,
@@ -106,6 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch {
             // Playing still works without browser storage.
         }
+        saveDailyElapsed();
+    }
+
+    // Time spent on today's puzzle is kept, so restarting it doesn't reset the clock.
+    function saveDailyElapsed() {
+        if (stats && dailyDate && !dailyPractice) stats.daily.saveElapsed(secondsElapsed);
     }
 
     function clearSavedGame() {
@@ -129,6 +148,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!Number.isInteger(saved.mistakes) || saved.mistakes < 0 || saved.mistakes >= MAX_MISTAKES) return null;
             const solved = saved.board.every((row, r) => row.every((v, c) => v === saved.solution[r][c]));
             if (solved) return null;
+            // A daily puzzle from another day is over: today's is a different board.
+            if (saved.difficulty === DAILY && (!stats || saved.dailyDate !== stats.today())) return null;
             return saved;
         } catch {
             return null;
@@ -145,6 +166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Object.prototype.hasOwnProperty.call(DIFFICULTY_SETTINGS, saved.difficulty)) {
             difficultySelect.value = saved.difficulty;
         }
+        dailyDate = saved.difficulty === DAILY ? saved.dailyDate : null;
+        dailyPractice = Boolean(dailyDate) && stats.daily.get().cleared;
         board = saved.board;
         initialBoard = saved.initialBoard;
         solution = saved.solution;
@@ -189,15 +212,19 @@ document.addEventListener('DOMContentLoaded', () => {
     function restoreDifficulty() {
         try {
             const savedDifficulty = localStorage.getItem(DIFFICULTY_STORAGE_KEY);
-            if (Object.prototype.hasOwnProperty.call(DIFFICULTY_SETTINGS, savedDifficulty)) {
+            if (savedDifficulty !== DAILY && Object.prototype.hasOwnProperty.call(DIFFICULTY_SETTINGS, savedDifficulty)) {
                 difficultySelect.value = savedDifficulty;
+                lastRegularDifficulty = savedDifficulty;
             }
         } catch {
             // Keep the default difficulty if browser storage is unavailable.
         }
     }
 
+    // Only the regular levels are remembered; the daily puzzle is picked on purpose each time.
     function saveDifficulty() {
+        if (difficultySelect.value === DAILY) return;
+        lastRegularDifficulty = difficultySelect.value;
         try {
             localStorage.setItem(DIFFICULTY_STORAGE_KEY, difficultySelect.value);
         } catch {
@@ -211,7 +238,14 @@ document.addEventListener('DOMContentLoaded', () => {
         initGame();
     });
     btnNewGame.addEventListener('click', initGame);
-    overlayBtn.addEventListener('click', initGame);
+    overlayBtn.addEventListener('click', () => {
+        // After the daily puzzle, "new puzzle" goes back to the regular level.
+        // (After losing it, the same button retries today's puzzle.)
+        if (difficultySelect.value === DAILY && (!stats || stats.daily.get().cleared)) {
+            difficultySelect.value = lastRegularDifficulty;
+        }
+        initGame();
+    });
 
     btnUndo.addEventListener('click', undoMove);
     btnErase.addEventListener('click', eraseCell);
@@ -468,7 +502,16 @@ document.addEventListener('DOMContentLoaded', () => {
         history = [];
         selectedCell = null;
 
+        dailyDate = stats && difficultySelect.value === DAILY ? stats.today() : null;
+        if (!dailyDate && difficultySelect.value === DAILY) difficultySelect.value = lastRegularDifficulty;
+        const dailyState = dailyDate ? stats.daily.get() : null;
+        dailyPractice = Boolean(dailyState && dailyState.cleared);
+
         resetTimer();
+        if (dailyState && !dailyPractice) {
+            secondsElapsed = dailyState.elapsed;
+            timerEl.textContent = formatTime(secondsElapsed);
+        }
         startTimer();
 
         generateSudoku();
@@ -863,38 +906,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function gameOver(isWin) {
         clearInterval(timerInterval);
+        saveDailyElapsed();
         isRoundFinished = true;
         clearSavedGame();
         isPaused = false;
         pauseOverlay.classList.remove('active');
         pauseIcon.className = 'fas fa-pause';
         overlayContent.classList.remove('win-state', 'error-state');
+        if (overlayStats) overlayStats.replaceChildren();
 
         if (isWin) {
             emitFx('onWin');
             overlayContent.classList.add('win-state');
-            overlayKicker.textContent = "퍼즐 완성";
             overlayTitle.textContent = "완벽한 마무리";
             overlayTitle.className = "";
-            const timeStr = formatTime(secondsElapsed);
-            overlayMsg.textContent = `플레이 시간 ${timeStr}\n실수 ${mistakes}/3회로 퍼즐을 완성했습니다.`;
-            if (combo.isEnabled()) {
-                combo.finishRound();
-                overlayMsg.textContent += `\n콤보 점수 ${combo.getScore().toLocaleString()}점`;
+            const comboOn = combo.isEnabled();
+            if (comboOn) combo.finishRound();
+            const score = comboOn ? combo.getScore() : null;
+
+            if (dailyDate) {
+                const [, month, day] = dailyDate.split('-');
+                overlayKicker.textContent = `오늘의 퍼즐 · ${Number(month)}월 ${Number(day)}일`;
+            } else {
+                overlayKicker.textContent = "퍼즐 완성";
             }
+            overlayMsg.textContent = dailyPractice
+                ? "연습으로 다시 풀었어요.\n오늘의 기록은 첫 클리어만 남습니다."
+                : "";
             overlayBtn.textContent = "새 퍼즐 시작";
+            showWinStats(score);
+
             // Record for the TOP 10 check (leaderboard.js); captured now, before anything resets.
-            const record = {
-                mode: combo.isEnabled() ? 'combo' : 'normal',
-                difficulty: difficultySelect.value,
-                time: secondsElapsed,
-                mistakes,
-                score: combo.isEnabled() ? combo.getScore() : null
-            };
+            // The daily puzzle has its own board; a replay of it is never sent.
+            const record = dailyDate
+                ? { mode: DAILY, difficulty: 'medium', date: dailyDate, time: secondsElapsed, mistakes, score: null }
+                : { mode: comboOn ? 'combo' : 'normal', difficulty: difficultySelect.value, time: secondsElapsed, mistakes, score };
+            const submit = !dailyPractice;
             // Play win cascade then show overlay
             celebrateAllNumbers(() => {
                 overlay.classList.add('active');
-                if (window.Leaderboard) window.Leaderboard.onWin(record);
+                if (submit && window.Leaderboard) window.Leaderboard.onWin(record);
             });
         } else {
             overlayContent.classList.add('error-state');
@@ -905,6 +956,59 @@ document.addEventListener('DOMContentLoaded', () => {
             overlayBtn.textContent = "새 게임 시작";
             overlay.classList.add('active');
         }
+    }
+
+    // Result popup: this game's numbers next to the personal bests (stats.js).
+    function showWinStats(score) {
+        if (!overlayStats) return;
+        const comboOn = score !== null;
+        const rows = [];
+        const addRow = (label, value, note = '', isNew = false) => rows.push({ label, value, note, isNew });
+
+        let result = null;
+        let streak = 0;
+        if (stats && !dailyPractice) {
+            const key = dailyDate ? DAILY : `${comboOn ? 'combo' : 'normal'}-${difficultySelect.value}`;
+            // The daily puzzle keeps time only; combo score there is just for fun.
+            result = stats.recordWin(key, { time: secondsElapsed, score: dailyDate ? null : score });
+            if (dailyDate) streak = stats.daily.markCleared(secondsElapsed);
+        }
+
+        const bestNote = (isBest, prev, format) => {
+            if (!result || result.first) return '';
+            return isBest ? '개인 최고!' : `최고 ${format(prev)}`;
+        };
+        addRow('시간', formatTime(secondsElapsed),
+            bestNote(result && result.isBestTime, result && result.prevBestTime, formatTime),
+            Boolean(result && result.isBestTime && !result.first));
+        addRow('실수', `${mistakes}/${MAX_MISTAKES}`, mistakes === 0 ? '노미스' : '');
+        if (comboOn) {
+            const tracked = !dailyDate;
+            addRow('콤보 점수', `${score.toLocaleString()}점`,
+                tracked ? bestNote(result && result.isBestScore, result && result.prevBestScore, (v) => `${v.toLocaleString()}점`) : '',
+                Boolean(tracked && result && result.isBestScore && !result.first));
+            const bestHand = typeof combo.getBestHand === 'function' ? combo.getBestHand() : null;
+            if (bestHand) addRow('최고 족보', bestHand.name, `${bestHand.points}점`);
+        }
+        if (result) {
+            const where = dailyDate ? '오늘의 퍼즐' : `${comboOn ? '콤보 ' : ''}${DIFFICULTY_LABEL[difficultySelect.value] || ''}`;
+            addRow('클리어', `${result.wins}번째`, where);
+        }
+        if (streak > 0) addRow('연속 출석', `${streak}일`, streak > 1 ? '🔥 이어가는 중' : '오늘부터 시작');
+
+        rows.forEach(({ label, value, note, isNew }) => {
+            const row = document.createElement('div');
+            row.className = 'result-stat' + (isNew ? ' is-new' : '');
+            const labelEl = document.createElement('span');
+            labelEl.className = 'result-stat-label';
+            labelEl.textContent = label;
+            const valueEl = document.createElement('strong');
+            valueEl.textContent = value;
+            const noteEl = document.createElement('em');
+            noteEl.textContent = note;
+            row.append(labelEl, valueEl, noteEl);
+            overlayStats.appendChild(row);
+        });
     }
 
     // Cascade all 9 numbers in sequence at win, then call callback
@@ -1030,6 +1134,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === Sudoku Generator Engine (Backtracking + Logic Validation) ===
     function generateSudoku() {
+        if (!dailyDate) {
+            buildPuzzle();
+            return;
+        }
+        // Same date -> same random sequence -> same puzzle on every device.
+        rand = seededRandom(dailyDate);
+        try {
+            buildPuzzle();
+        } finally {
+            rand = Math.random;
+        }
+    }
+
+    // Deterministic generator (mulberry32) seeded from a string.
+    function seededRandom(text) {
+        let seed = 2166136261;
+        for (let i = 0; i < text.length; i++) {
+            seed ^= text.charCodeAt(i);
+            seed = Math.imul(seed, 16777619);
+        }
+        return () => {
+            seed = (seed + 0x6D2B79F5) | 0;
+            let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+
+    function buildPuzzle() {
         const settings = getDifficultySettings();
 
         for (const cluesTarget of settings.fallbackTargets) {
@@ -1052,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Shuffle an array (Fisher-Yates)
     function shuffleArray(arr) {
         for (let i = arr.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
+            const j = Math.floor(rand() * (i + 1));
             [arr[i], arr[j]] = [arr[j], arr[i]];
         }
         return arr;
@@ -1219,7 +1352,7 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < 3; i++) {
             for (let j = 0; j < 3; j++) {
                 let num;
-                do { num = Math.floor(Math.random() * 9) + 1; }
+                do { num = Math.floor(rand() * 9) + 1; }
                 while (!isSafeInBox(mat, rowStart, colStart, num));
                 mat[rowStart + i][colStart + j] = num;
             }
