@@ -16,6 +16,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedNumber = null; // Currently active number for quick entry
     let selectedNumberSource = null; // 'user' | 'auto'
 
+    // Combo mode hooks (combo.js); no-op fallback keeps Sudoku working without it
+    const combo = window.ComboMode || {
+        isEnabled: () => false, getScore: () => 0, reset() {}, finishRound() {}, syncCounts() {},
+        onCorrect() {}, onMistake() {}, onRemove() {}
+    };
+
     let timerInterval;
     let secondsElapsed = 0;
 
@@ -411,6 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         generateSudoku();
         renderBoard();
+        combo.reset();
         updateNumpadState();
     }
 
@@ -526,6 +533,7 @@ document.addEventListener('DOMContentLoaded', () => {
             updateCellDOM(r, c, val, true);
             // Remove this number from notes of all related cells (row/col/box)
             removeNoteFromRelatedCells(r, c, val);
+            combo.onCorrect(r, c, val);
             updateNumpadState();
             selectCell(r, c);
             checkWin();
@@ -534,6 +542,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Incorrect logic
             mistakes++;
             updateMistakesDisplay();
+            combo.onMistake();
 
             const cellEl = getCellElement(r, c);
             cellEl.classList.add('error-animation');
@@ -558,6 +567,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveHistory(r, c, board[r][c]);
             board[r][c] = 0;
             updateCellDOM(r, c, '', false);
+            combo.onRemove(r, c);
         }
         // Always clear all draft notes
         if (notes[r][c].size > 0) {
@@ -639,6 +649,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (history.length === 0) return;
 
         const { r, c, prevVal } = history.pop();
+        if (board[r][c] !== 0) combo.onRemove(r, c);
         board[r][c] = prevVal;
         updateCellDOM(r, c, prevVal !== 0 ? prevVal : '', prevVal !== 0 && initialBoard[r][c] === 0);
         selectCell(r, c);
@@ -725,6 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             refreshSelectedNumberUI();
         }
+        combo.syncCounts(counts);
     }
 
     // Cascade wave animation for a completed number
@@ -793,6 +805,10 @@ document.addEventListener('DOMContentLoaded', () => {
             overlayTitle.className = "";
             const timeStr = formatTime(secondsElapsed);
             overlayMsg.textContent = `플레이 시간 ${timeStr}\n실수 ${mistakes}/3회로 퍼즐을 완성했습니다.`;
+            if (combo.isEnabled()) {
+                combo.finishRound();
+                overlayMsg.textContent += `\n콤보 점수 ${combo.getScore().toLocaleString()}점`;
+            }
             overlayBtn.textContent = "새 퍼즐 시작";
             // Play win cascade then show overlay
             celebrateAllNumbers(() => {

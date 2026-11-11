@@ -21,6 +21,11 @@
             <div class="header-top">
                 <h1>Sudoku</h1>
                 <div class="header-actions">
+                    <!-- Combo mode (order-based scoring mini game) -->
+                    <button id="combo-toggle" class="icon-btn" aria-label="Toggle Combo Mode" aria-pressed="false"
+                        title="콤보 모드: 입력 순서로 족보를 만들어 점수 얻기">
+                        <i class="fas fa-dice"></i>
+                    </button>
                     <!-- Pause button moved here as small icon -->
                     <button id="btn-pause" class="icon-btn" aria-label="Pause Game" title="게임 일시정지 / 재개">
                         <i class="fas fa-pause" id="pause-icon"></i>
@@ -80,6 +85,45 @@
                 </div>
             </div>
 
+            <!-- Combo Mode Panel -->
+            <section class="combo-panel" id="combo-panel" aria-live="polite" hidden>
+                <div class="combo-row">
+                    <div class="combo-score-box">
+                        <span class="combo-label">점수</span>
+                        <span class="combo-score" id="combo-score">0</span>
+                    </div>
+                    <div class="combo-slots" id="combo-slots" aria-label="현재 패"></div>
+                    <span class="combo-current" id="combo-current"></span>
+                    <button class="combo-help-btn" id="combo-help-btn" type="button" title="족보표 보기">
+                        <i class="fas fa-list-ol"></i><span>족보</span>
+                    </button>
+                    <div class="combo-flash" id="combo-flash"></div>
+                </div>
+                <div class="combo-row">
+                    <span class="combo-label">다음 예상</span>
+                    <div class="combo-predictions" id="combo-predictions"></div>
+                </div>
+            </section>
+
+            <!-- Combo Paytable Popup -->
+            <div class="combo-modal" id="combo-modal" role="dialog" aria-modal="true" aria-labelledby="combo-modal-title" hidden>
+                <div class="combo-modal-content">
+                    <div class="combo-modal-header">
+                        <h3 id="combo-modal-title">콤보 족보표</h3>
+                        <button class="combo-modal-close" id="combo-modal-close" type="button" aria-label="닫기">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <ul class="combo-rules">
+                        <li>정답을 넣는 <b>순서</b>대로 패가 쌓입니다 (최대 5장).</li>
+                        <li>최고 족보나 5장이 되면 <b>바로 확정</b>되고 새 패가 시작됩니다.</li>
+                        <li>흐름이 끊기는 번호를 넣으면 지금까지의 패를 확정하고, 그 번호로 새 패를 시작합니다.</li>
+                        <li>실수하면 <b>확정 전 패는 날아갑니다</b>.</li>
+                    </ul>
+                    <div class="combo-paytable" id="combo-paytable"></div>
+                </div>
+            </div>
+
             <div class="controls-panel">
                 <div class="numpad" id="numpad">
                     <!-- 1 to 9 Numpad Buttons -->
@@ -107,6 +151,7 @@
             </div>
         </main>
     </div>
+    <script src="combo.js"></script>
     <script src="script.js"></script>
 </body>
 
