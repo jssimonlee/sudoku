@@ -10,7 +10,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let history = [];
     let isPaused = false;
     let isRoundFinished = false;
-    let isGreenComplete = false;
     let isNotesMode = false;
     let notes = [];
     let selectedNumber = null; // Currently active number for quick entry
@@ -47,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === DOM Elements ===
     const boardElement = document.getElementById('sudoku-board');
+    const healthBarsEl = document.getElementById('health-bars');
     const healthBars = document.querySelectorAll('.health-bar');
     const timerEl = document.getElementById('timer');
     const difficultySelect = document.getElementById('difficulty');
@@ -75,12 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const pauseOverlay = document.getElementById('pause-overlay');
     const pauseResumeBtn = document.getElementById('pause-resume-btn');
 
-    const themeToggleBtn = document.getElementById('theme-toggle');
-    const themeIcon = document.getElementById('theme-icon');
-    const completeColorToggleBtn = document.getElementById('complete-color-toggle');
-
     // === Init Game ===
-    initTheme();
     restoreDifficulty();
     initGame();
 
@@ -103,27 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function initTheme() {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        if (!currentTheme) {
-            // Default to light theme
-            document.documentElement.setAttribute('data-theme', 'light');
-            themeIcon.className = 'fas fa-moon';
-        }
-    }
-
     // === Event Listeners ===
-    themeToggleBtn.addEventListener('click', () => {
-        const currentTheme = document.documentElement.getAttribute('data-theme');
-        if (currentTheme === 'light') {
-            document.documentElement.setAttribute('data-theme', 'dark');
-            themeIcon.className = 'fas fa-sun theme-sun';
-        } else {
-            document.documentElement.setAttribute('data-theme', 'light');
-            themeIcon.className = 'fas fa-moon';
-        }
-    });
-
     difficultySelect.addEventListener('change', () => {
         saveDifficulty();
         initGame();
@@ -150,45 +125,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    completeColorToggleBtn.addEventListener('click', () => {
-        isGreenComplete = !isGreenComplete;
-
-        if (isGreenComplete) {
-            // Feature ON: button becomes colorless, numbers turn green
-            completeColorToggleBtn.classList.remove('complete-color-on');
-            updateNumpadState(); // handles numpad buttons
-
-            // Also apply green to board cells of already-completed numbers
-            const counts = Array(10).fill(0);
-            for (let r = 0; r < 9; r++)
-                for (let c = 0; c < 9; c++)
-                    if (board[r][c] !== 0) counts[board[r][c]]++;
-
-            for (let num = 1; num <= 9; num++) {
-                if (counts[num] >= 9) {
-                    for (let r = 0; r < 9; r++)
-                        for (let c = 0; c < 9; c++)
-                            if (board[r][c] === num) {
-                                const el = getCellElement(r, c);
-                                if (el) el.classList.add('cell-complete');
-                            }
-                }
-            }
-        } else {
-            // Feature OFF: button becomes green, remove green, restore disabled style
-            completeColorToggleBtn.classList.add('complete-color-on');
-            document.querySelectorAll('.cell.cell-complete').forEach(el => el.classList.remove('cell-complete'));
-            document.querySelectorAll('.num-btn.completed').forEach(el => {
-                el.classList.remove('completed');
-                el.classList.add('disabled'); // restore old disabled gray style
-            });
-        }
-    });
-
-
     numButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (btn.classList.contains('completed') || btn.classList.contains('disabled')) return;
+            if (btn.classList.contains('disabled')) return;
             const val = parseInt(btn.getAttribute('data-val'));
             setSelectedNumber(val); // Mark this number as active
             if (isNotesMode) {
@@ -564,7 +503,11 @@ document.addEventListener('DOMContentLoaded', () => {
             mistakes++;
             updateMistakesDisplay();
             combo.onMistake();
-            emitFx('onMistake', { r, c });
+            emitFx('onMistake', {
+                r, c,
+                bar: healthBars[MAX_MISTAKES - mistakes],
+                livesLeft: MAX_MISTAKES - mistakes
+            });
 
             const cellEl = getCellElement(r, c);
             cellEl.classList.add('error-animation');
@@ -708,6 +651,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateMistakesDisplay() {
+        // Rich effects use this to pulse the last remaining life.
+        healthBarsEl.dataset.lives = String(MAX_MISTAKES - mistakes);
         healthBars.forEach((bar, index) => {
             if (index < (3 - mistakes)) {
                 bar.classList.add('active');
@@ -729,25 +674,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         numButtons.forEach(btn => {
             const val = parseInt(btn.getAttribute('data-val'));
-            const wasCompleted = btn.classList.contains('completed');
             const wasDisabled = btn.classList.contains('disabled');
 
             if (counts[val] >= 9) {
-                if (isGreenComplete) {
-                    // Green mode: use green completed style
-                    btn.classList.add('completed');
-                    btn.classList.remove('disabled');
-                } else {
-                    // Normal mode: use old gray disabled style
-                    btn.classList.add('disabled');
-                    btn.classList.remove('completed');
-                }
+                btn.classList.add('disabled');
                 // Trigger celebration only when this number JUST became complete
-                if (!wasCompleted && !wasDisabled) {
-                    celebrateNumber(val, btn);
-                }
+                if (!wasDisabled) celebrateNumber(val, btn);
             } else {
-                btn.classList.remove('completed');
                 btn.classList.remove('disabled');
             }
         });
@@ -781,11 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 cellEl.classList.remove('complete-flash');
                 void cellEl.offsetWidth; // Reflow to restart animation
                 cellEl.classList.add('complete-flash');
-                setTimeout(() => {
-                    cellEl.classList.remove('complete-flash');
-                    // Permanently colour the cell green after animation (if toggle is ON)
-                    if (isGreenComplete) cellEl.classList.add('cell-complete');
-                }, 700);
+                setTimeout(() => cellEl.classList.remove('complete-flash'), 700);
             }, idx * 60); // 60ms between each cell
         });
 

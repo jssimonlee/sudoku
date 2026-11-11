@@ -40,48 +40,6 @@
     --bg-gradient-2: rgba(139, 92, 246, 0.2);
 }
 
-[data-theme="dark"] {
-    /* Color Palette */
-    --bg-color: #0f172a;
-    /* Slate 900 */
-    --surface-color: rgba(30, 41, 59, 0.7);
-    /* Slate 800 blur */
-    --surface-border: rgba(255, 255, 255, 0.1);
-
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --text-initial: #f8fafc;
-    --text-input: #60a5fa;
-    /* Blue 400 */
-    --text-error: #fca5a5;
-
-    --accent-color: #3b82f6;
-    /* Blue 500 */
-    --accent-hover: #2563eb;
-    --error-color: #ef4444;
-    /* Red 500 */
-    --success-color: #10b981;
-    /* Emerald 500 */
-
-    /* Board Grid Colors */
-    --cell-bg: rgba(15, 23, 42, 0.4);
-    --cell-border: rgba(255, 255, 255, 0.05);
-    --cell-border-thick: rgba(255, 255, 255, 0.3);
-
-    /* Interaction Colors */
-    --cell-selected: rgba(59, 130, 246, 0.3);
-    --cell-highlighted: rgba(255, 255, 255, 0.08);
-    --cell-error: rgba(239, 68, 68, 0.2);
-    --cell-same-number: rgba(96, 165, 250, 0.2);
-
-    /* Overlay Background */
-    --overlay-bg: rgba(15, 23, 42, 0.85);
-
-    /* Body Background Gradient Colors */
-    --bg-gradient-1: rgba(59, 130, 246, 0.15);
-    --bg-gradient-2: rgba(139, 92, 246, 0.15);
-}
-
 * {
     box-sizing: border-box;
     margin: 0;
@@ -132,27 +90,6 @@ header {
     align-items: center;
 }
 
-/* # Complete-color toggle button */
-.hash-icon {
-    font-size: 1.4rem;
-    font-weight: 900;
-    font-family: 'Outfit', monospace;
-    line-height: 1;
-    transition: color 0.3s ease;
-}
-
-/* ON state: green button */
-#complete-color-toggle.complete-color-on .hash-icon {
-    color: #34d399;
-    text-shadow: 0 0 8px rgba(52, 211, 153, 0.6);
-}
-
-/* OFF state: muted / neutral */
-#complete-color-toggle:not(.complete-color-on) .hash-icon {
-    color: var(--text-secondary);
-    text-shadow: none;
-}
-
 
 h1 {
     font-size: 2.5rem;
@@ -190,15 +127,6 @@ h1 {
     font-size: 1.5rem;
     /* Larger icon */
     transition: all 0.3s ease;
-}
-
-.theme-sun {
-    color: #eab308;
-    /* Yellow 500 */
-    text-shadow: 0 0 12px rgba(234, 179, 8, 0.8);
-    /* Soft yellow glow */
-    font-weight: 900;
-    /* Force Solid style for FontAwesome */
 }
 
 .stats-bar {
@@ -263,20 +191,10 @@ select option {
     transition: background-color 0.3s ease, transform 0.3s ease;
 }
 
-[data-theme='dark'] .health-bar {
-    border: 1.5px solid rgba(255, 255, 255, 0.15);
-}
-
 .health-bar.active {
     background-color: #34d399;
     /* Emerald Green */
     border-color: #10b981;
-}
-
-[data-theme='dark'] .health-bar.active {
-    background-color: #34d399;
-    /* Emerald Green */
-    border-color: #34d399;
 }
 
 main {
@@ -425,13 +343,6 @@ main {
     z-index: 10;
     position: relative;
     isolation: isolate;
-}
-
-/* Permanently tint all 9 cells of a completed number */
-.cell.cell-complete {
-    color: #34d399 !important;
-    /* Emerald 400 */
-    font-weight: 700;
 }
 
 /* Notes mode active button */
@@ -590,16 +501,6 @@ main {
     transform: translateY(0) scale(0.95);
 }
 
-.num-btn.completed {
-    color: #34d399;
-    /* Emerald 400 */
-    border-color: rgba(52, 211, 153, 0.4);
-    background: rgba(16, 185, 129, 0.12);
-    pointer-events: none;
-    font-weight: 700;
-    box-shadow: 0 0 10px rgba(52, 211, 153, 0.2);
-}
-
 /* Active / selected number highlight */
 .num-btn.num-selected {
     color: var(--accent-color);
@@ -619,7 +520,6 @@ main {
 }
 
 /* Completion stays visible independently of the selected-number highlight. */
-.num-btn.completed::after,
 .num-btn.disabled::after {
     content: '\2713';
     position: absolute;
@@ -631,18 +531,12 @@ main {
     color: inherit;
 }
 
-.num-btn.completed.num-selected,
 .num-btn.disabled.num-selected {
     border-color: var(--accent-color);
     outline: 2px solid var(--accent-color);
     outline-offset: 2px;
     box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
     transform: scale(1.08);
-}
-
-.num-btn.completed.num-selected {
-    color: #34d399;
-    background: rgba(16, 185, 129, 0.12);
 }
 
 .num-btn.disabled.num-selected {
@@ -1655,17 +1549,13 @@ main {
     color: #3b82f6;
 }
 
-[data-theme="dark"] .fx-float.fx-float-board {
-    color: #93c5fd;
-}
-
 .fx-banner.fx-banner-board {
     background: linear-gradient(135deg, #3b82f6, #a78bfa 50%, #34d399);
     box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.25), 0 20px 60px rgba(59, 130, 246, 0.45);
 }
 
 @media (max-width: 480px) {
-    /* Five header buttons next to the title on phones */
+    /* Header buttons next to the title on phones */
     h1 {
         font-size: 1.6rem;
     }
@@ -1688,5 +1578,69 @@ main {
     .cell.fx-correct,
     .cell.fx-unit-wave {
         animation-duration: 0.01ms !important;
+    }
+}
+
+/* === Life lost (rich effects) === */
+.health-bar {
+    position: relative;
+}
+
+.health-bar.fx-life-lost {
+    animation: fxLifeLost 0.7s ease-out;
+}
+
+@keyframes fxLifeLost {
+    0% { background-color: #ef4444; border-color: #dc2626; transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.8); }
+    20% { transform: scale(1.5) rotate(-12deg); box-shadow: 0 0 14px 4px rgba(239, 68, 68, 0.6); }
+    40% { transform: scale(0.8) rotate(10deg); }
+    60% { transform: scale(1.15) rotate(-5deg); background-color: #fca5a5; }
+    100% { background-color: transparent; transform: scale(1) rotate(0); box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Last life left: the remaining bar pulses red */
+.fx-rich .health-bars[data-lives="1"] .health-bar.active {
+    animation: fxLastLife 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes fxLastLife {
+    from { background-color: #f87171; border-color: #ef4444; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); transform: scale(1); }
+    to { background-color: #ef4444; border-color: #dc2626; box-shadow: 0 0 10px 3px rgba(239, 68, 68, 0.55); transform: scale(1.12); }
+}
+
+.fx-float.fx-float-life {
+    color: #ef4444;
+}
+
+/* Red vignette around the screen */
+.fx-screen-flash {
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    pointer-events: none;
+    animation: fxScreenFlash 0.7s ease-out forwards;
+}
+
+.fx-screen-flash-1 { box-shadow: inset 0 0 60px 10px rgba(239, 68, 68, 0.35); }
+.fx-screen-flash-2 { box-shadow: inset 0 0 90px 20px rgba(239, 68, 68, 0.5); }
+.fx-screen-flash-3 { box-shadow: inset 0 0 130px 40px rgba(220, 38, 38, 0.65); background: rgba(239, 68, 68, 0.08); }
+
+@keyframes fxScreenFlash {
+    0% { opacity: 0; }
+    15% { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+.fx-banner.fx-banner-life {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    box-shadow: 0 12px 40px rgba(220, 38, 38, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .health-bar.fx-life-lost,
+    .fx-rich .health-bars[data-lives="1"] .health-bar.active,
+    .fx-screen-flash {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
     }
 }

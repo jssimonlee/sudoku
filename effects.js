@@ -17,6 +17,7 @@
 
     const COLORS = ['#f59e0b', '#fbbf24', '#fb923c', '#f472b6', '#60a5fa', '#34d399', '#a78bfa'];
     const BOARD_COLORS = ['#60a5fa', '#38bdf8', '#34d399', '#a78bfa', '#93c5fd'];
+    const LIFE_COLORS = ['#ef4444', '#f87171', '#dc2626', '#fca5a5', '#34d399'];
 
     const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -121,6 +122,17 @@
         mistake() {
             tone(220, 0, 0.18, { type: 'square', gain: 0.14, slideTo: 150 });
             tone(110, 0, 0.2, { type: 'sine', gain: 0.35 });
+        },
+        // Losing a life: a falling "hit" that gets lower as lives run out.
+        lifeLost(livesLeft) {
+            const base = livesLeft >= 2 ? 330 : 260;
+            tone(base, 0, 0.12, { type: 'square', gain: 0.16, slideTo: base * 0.6 });
+            tone(base * 0.75, 0.12, 0.22, { type: 'square', gain: 0.14, slideTo: base * 0.4 });
+            tone(90, 0, 0.3, { type: 'sine', gain: 0.4 });
+        },
+        lifeOut() {
+            [392, 330, 262, 196].forEach((f, i) => tone(f, i * 0.16, 0.2, { type: 'square', gain: 0.14, slideTo: f * 0.94 }));
+            tone(70, 0.6, 0.7, { type: 'sine', gain: 0.45, slideTo: 45 });
         }
     };
 
@@ -134,7 +146,7 @@
     }
 
     // === Vibration ===
-    const VIBRATION = { 3: 40, 4: [60, 40, 60, 40, 120], break: 90, unit: 25, number: 40, win: [80, 50, 80, 50, 200], mistake: 70 };
+    const VIBRATION = { 3: 40, 4: [60, 40, 60, 40, 120], break: 90, unit: 25, number: 40, win: [80, 50, 80, 50, 200], mistake: [70, 40, 50], lifeOut: [120, 60, 120, 60, 300] };
 
     function vibrate(name) {
         if (!settings.vibrate || !VIBRATION[name] || !navigator.vibrate) return;
@@ -334,6 +346,14 @@
         setTimeout(() => el.remove(), tier >= 4 ? 1800 : 1200);
     }
 
+    // Red vignette over the whole screen (level 1-3).
+    function screenFlash(level) {
+        const el = document.createElement('div');
+        el.className = `fx-screen-flash fx-screen-flash-${Math.max(1, Math.min(3, level))}`;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 700);
+    }
+
     function shake(strength) {
         if (reducedMotion) return;
         restartClass(document.querySelector('.board-container'), `fx-shake-${strength}`, 500);
@@ -476,10 +496,32 @@
             if (!reducedMotion) confetti(170);
         },
 
-        onMistake() {
+        // A life was lost. bar: the health bar that just emptied, livesLeft: lives remaining.
+        onMistake({ r, c, bar, livesLeft } = {}) {
             if (!settings.boardFx) return;
-            playSound('mistake');
-            vibrate('mistake');
+            const final = livesLeft === 0;
+            playSound(final ? 'lifeOut' : 'lifeLost', livesLeft);
+            vibrate(final ? 'lifeOut' : 'mistake');
+
+            // The emptied bar cracks and shatters into red shards.
+            if (bar) {
+                restartClass(bar, 'fx-life-lost', 700);
+                const { x, y } = center(bar);
+                burst(x, y, final ? 30 : 16, final ? 5 : 3.5, LIFE_COLORS);
+                floatText('-1', bar, 2, 'fx-float-life');
+            }
+
+            const cell = Number.isInteger(r) ? getCell(r * 9 + c) : null;
+            if (cell) {
+                const { x, y } = center(cell);
+                burst(x, y, 10, 3, LIFE_COLORS);
+            }
+
+            // Red flash around the screen edges, stronger as lives run out.
+            screenFlash(final ? 3 : 3 - livesLeft);
+            shake(final || livesLeft === 1 ? 'big' : 'small');
+
+            if (livesLeft === 1) banner('마지막 기회!', '한 번 더 틀리면 끝', 3, 'fx-banner-life');
         }
     };
 
@@ -532,6 +574,8 @@
         }
 
         function sync() {
+            // Lets CSS gate persistent rich effects (e.g. the last-life pulse).
+            document.body.classList.toggle('fx-rich', !!settings.boardFx);
             if (headerBtn) {
                 headerBtn.classList.toggle('fx-active', !!settings.boardFx);
                 headerBtn.title = settings.boardFx ? '화려한 효과 켜짐 (설정 열기)' : '화려한 효과 꺼짐 (설정 열기)';
