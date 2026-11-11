@@ -46,6 +46,9 @@
     const headMain = document.getElementById('lb-head-main');
     const table = document.getElementById('lb-table');
     const statusEl = document.getElementById('lb-status');
+    const switchBtn = document.getElementById('lb-switch');
+    const switchLabel = document.getElementById('lb-switch-label');
+    const switchIcon = switchBtn && switchBtn.querySelector('i');
 
     if (!apiBase || !modal) {
         window.Leaderboard = { onWin() {} };
@@ -53,7 +56,8 @@
     }
     toggleBtn.hidden = false;
 
-    let view = { kind: 'normal', difficulty: 'medium', highlight: null };
+    // highlights: board key -> rank of the record just registered (marked NEW on that board)
+    let view = { kind: 'normal', difficulty: 'medium', highlights: {} };
     let pending = null;          // record waiting for initials
     let turnstileId = null;
     let turnstileToken = '';
@@ -169,11 +173,29 @@
         return span;
     }
 
+    const COMBO_PARTNER = { 'combo-time': 'combo-score', 'combo-score': 'combo-time' };
+
+    // Combo boards get a button that flips to the same level's other combo ranking.
+    function renderSwitch() {
+        if (!switchBtn) return;
+        const partner = COMBO_PARTNER[view.kind];
+        switchBtn.hidden = !partner;
+        if (!partner) return;
+        const toScore = partner === 'combo-score';
+        switchLabel.textContent = toScore ? '점수 보기' : '시간 보기';
+        switchIcon.className = toScore ? 'fas fa-star' : 'fas fa-stopwatch';
+        switchBtn.classList.toggle('to-time', !toScore);
+        switchBtn.classList.toggle('has-new', Boolean(view.highlights[boardKey(partner, view.difficulty)]));
+        switchBtn.setAttribute('aria-label', toScore ? '콤보 점수 순위 보기' : '콤보 시간 순위 보기');
+    }
+
     // Always 10 rows like an arcade high-score table; empty places show "---".
     function renderView(boards) {
         boardSelect.value = boardKey(view.kind, view.difficulty);
         headMain.textContent = view.kind === 'combo-score' ? '점수' : '시간';
+        renderSwitch();
 
+        const mine = view.highlights[boardKey(view.kind, view.difficulty)] || null;
         const list = (boards && boards[boardKey(view.kind, view.difficulty)]) || [];
         table.replaceChildren();
         for (let i = 0; i < TOP_N; i++) {
@@ -182,7 +204,7 @@
             li.className = 'lb-row'
                 + (i < 3 ? ` lb-top${i + 1}` : '')
                 + (row ? '' : ' lb-row-empty')
-                + (row && view.highlight === i + 1 ? ' lb-me' : '');
+                + (row && mine === i + 1 ? ' lb-me' : '');
             li.style.setProperty('--i', i);
             li.append(
                 makeCell('lb-rank', i < 3 ? MEDALS[i] : String(i + 1)),
@@ -199,8 +221,9 @@
         setStatus(list.length === 0 ? '아직 기록이 없어요. 첫 1위의 주인공이 되어 보세요!' : '');
     }
 
-    async function showView(kind, difficulty, { highlight = null, maxAge = VIEW_MAX_AGE } = {}) {
-        view = { kind, difficulty, highlight };
+    // Switching boards keeps the NEW marks (they are keyed by board).
+    async function showView(kind, difficulty, { highlights = view.highlights, maxAge = VIEW_MAX_AGE } = {}) {
+        view = { kind, difficulty, highlights };
         const cache = readCache();
         renderView(cache && cache.boards);
         if (!cache) setStatus('불러오는 중…');
@@ -216,6 +239,13 @@
         const [kind, difficulty] = splitBoardKey(boardSelect.value);
         if (kind) showView(kind, difficulty);
     });
+
+    if (switchBtn) {
+        switchBtn.addEventListener('click', () => {
+            const partner = COMBO_PARTNER[view.kind];
+            if (partner) showView(partner, view.difficulty);
+        });
+    }
 
     function splitBoardKey(key) {
         const d = DIFFICULTIES.find((diff) => key.endsWith(`-${diff}`));
@@ -236,7 +266,7 @@
         resultEl.hidden = true;
         openModal();
         closeBtn.focus();
-        showView(comboOn ? 'combo-score' : 'normal', DIFFICULTIES.includes(difficulty) ? difficulty : 'medium');
+        showView(comboOn ? 'combo-score' : 'normal', DIFFICULTIES.includes(difficulty) ? difficulty : 'medium', { highlights: {} });
     });
 
     closeBtn.addEventListener('click', closeModal);
@@ -312,7 +342,7 @@
         sendBtn.disabled = false;
         resultEl.hidden = true;
         form.hidden = false;
-        view = { kind: qualifying[0].kind, difficulty: record.difficulty, highlight: null };
+        view = { kind: qualifying[0].kind, difficulty: record.difficulty, highlights: {} };
         renderView(readCache() && readCache().boards);
         openModal();
         initialsInput.focus();
@@ -370,8 +400,14 @@
             resultEl.textContent = lines.join(' · ');
             resultEl.hidden = false;
 
+            // Mark the new record on every board it made, so flipping time ↔ score shows NEW too.
+            const highlights = {};
+            kinds.forEach((kind) => {
+                const key = boardKey(kind, record.difficulty);
+                if (data.results[key]) highlights[key] = data.results[key];
+            });
             const best = kinds.find((kind) => data.results[boardKey(kind, record.difficulty)]) || kinds[0];
-            view = { kind: best, difficulty: record.difficulty, highlight: data.results[boardKey(best, record.difficulty)] };
+            view = { kind: best, difficulty: record.difficulty, highlights };
             renderView(data.boards);
             closeBtn.focus();
         } catch {

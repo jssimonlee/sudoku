@@ -1867,10 +1867,88 @@ main {
     display: none;
 }
 
-/* Board picker: one dropdown */
+/* Board picker: one dropdown (+ time/score switch on combo boards) */
+.lb-picker-row {
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
 .lb-picker {
     position: relative;
-    margin-bottom: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.lb-switch {
+    position: relative;
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 14px;
+    border-radius: 999px;
+    border: 2px solid #f97316;
+    background: linear-gradient(135deg, #f59e0b, #f97316);
+    color: #fff;
+    font-family: inherit;
+    font-size: 0.85rem;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 3px 0 #c2410c;
+    transition: transform 0.1s, box-shadow 0.1s, filter 0.15s;
+}
+
+.lb-switch:hover {
+    filter: brightness(1.06);
+}
+
+.lb-switch:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 #c2410c;
+}
+
+.lb-switch:focus-visible {
+    outline: none;
+    box-shadow: 0 3px 0 #c2410c, 0 0 0 4px rgba(249, 115, 22, 0.35);
+}
+
+/* Showing scores: the button leads back to time in a calm blue */
+.lb-switch.to-time {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    box-shadow: 0 3px 0 #1d4ed8;
+}
+
+.lb-switch.to-time:active {
+    box-shadow: 0 1px 0 #1d4ed8;
+}
+
+.lb-switch.to-time:focus-visible {
+    box-shadow: 0 3px 0 #1d4ed8, 0 0 0 4px rgba(59, 130, 246, 0.35);
+}
+
+/* The other ranking also has the new record */
+.lb-switch.has-new::after {
+    content: "NEW";
+    position: absolute;
+    right: -6px;
+    top: -9px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: #ef4444;
+    color: #fff;
+    font-size: 0.6rem;
+    font-weight: 900;
+    letter-spacing: 1px;
+    transform: rotate(8deg);
+    box-shadow: 0 0 0 2px #fff;
+}
+
+.lb-switch[hidden] {
+    display: none;
 }
 
 .lb-picker select {

@@ -195,9 +195,16 @@
 
                     <p class="lb-result" id="lb-result" role="status" hidden></p>
                     <!-- One dropdown for all 12 boards; opens on the current game's mode and level -->
-                    <div class="lb-picker">
-                        <select id="lb-board" aria-label="순위표 선택"></select>
-                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    <div class="lb-picker-row">
+                        <div class="lb-picker">
+                            <select id="lb-board" aria-label="순위표 선택"></select>
+                            <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                        </div>
+                        <!-- Combo boards only: flip between the time and score rankings -->
+                        <button type="button" class="lb-switch" id="lb-switch" hidden>
+                            <i class="fas fa-star" aria-hidden="true"></i>
+                            <span id="lb-switch-label">점수 보기</span>
+                        </button>
                     </div>
                     <div class="lb-head" aria-hidden="true">
                         <span>순위</span><span>이름</span><span id="lb-head-main">기록</span>
