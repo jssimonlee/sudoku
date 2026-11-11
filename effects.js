@@ -102,22 +102,10 @@
 
         // --- Normal game ---
         // Each number has its own note (1 = C5 … 9 = D6), so input order plays a melody.
-        // A longer flow (level 0-3) keeps the note but adds brighter layers on top.
-        pop(val, level = 0) {
+        pop(val) {
             const f = SCALE[val] || N.C5;
             tone(f, 0, 0.14, { type: 'sine', gain: 0.35 });
-            tone(f * 2, 0, 0.06, { type: 'triangle', gain: 0.08 + level * 0.04 });
-            if (level >= 1) tone(f * 1.5, 0.03, 0.1, { type: 'sine', gain: 0.1 + level * 0.03 });
-            if (level >= 2) tone(f * 2, 0.06, 0.12, { type: 'sine', gain: 0.12 });
-            if (level >= 3) tone(f * 3, 0.09, 0.14, { type: 'sine', gain: 0.08 });
-        },
-        // Flow milestone (5, 10, 20, ... in a row): a quick rising sparkle.
-        flow(level) {
-            const notes = [N.E6, N.G6, N.C7].slice(0, Math.max(2, level));
-            notes.forEach((f, i) => tone(f, 0.08 + i * 0.05, 0.16, { type: 'triangle', gain: 0.22 }));
-        },
-        flowBreak() {
-            tone(520, 0, 0.16, { type: 'sine', gain: 0.2, slideTo: 260 });
+            tone(f * 2, 0, 0.06, { type: 'triangle', gain: 0.08 });
         },
         unit(count) {
             const notes = count >= 2 ? [N.C6, N.E6, N.G6, N.C7] : [N.G5, N.C6, N.E6];
@@ -150,10 +138,10 @@
 
     const SCALE = { 1: 523.25, 2: 587.33, 3: 659.25, 4: 698.46, 5: 783.99, 6: 880, 7: 987.77, 8: 1046.5, 9: 1174.66 };
 
-    function playSound(name, arg, arg2) {
+    function playSound(name, arg) {
         if (!settings.sound) return;
         try {
-            SOUNDS[name](arg, arg2);
+            SOUNDS[name](arg);
         } catch (e) { /* audio unavailable */ }
     }
 
@@ -412,52 +400,6 @@
 
     let lastBankAt = -Infinity;
 
-    // === Flow: correct inputs in a row without a mistake (normal game) ===
-    // Purely cosmetic: it scores nothing and only makes the feedback grow.
-    const FLOW_START = 5;                 // the badge appears from here
-    const FLOW_LEVELS = [5, 10, 20];      // level 1 / 2 / 3 thresholds
-    const FLOW_PARTICLES = [6, 10, 14, 20];
-    const FLOW_SPEED = [2, 2.6, 3.2, 4];
-    const FLOW_COLORS = ['#fbbf24', '#f59e0b', '#f472b6'];
-    let flow = 0;
-    let flowBadge = null;
-
-    function flowLevel(count = flow) {
-        return FLOW_LEVELS.filter((min) => count >= min).length;
-    }
-
-    function isFlowMilestone(count) {
-        return count === FLOW_START || (count >= 10 && count % 10 === 0);
-    }
-
-    function renderFlow() {
-        const board = document.querySelector('.board-container');
-        if (!board) return;
-        const shown = settings.boardFx && flow >= FLOW_START;
-        board.dataset.fxFlow = shown ? flowLevel() : 0;
-        if (!shown) {
-            if (flowBadge) flowBadge.hidden = true;
-            return;
-        }
-        if (!flowBadge) {
-            flowBadge = document.createElement('div');
-            flowBadge.className = 'fx-flow-badge';
-            flowBadge.setAttribute('aria-hidden', 'true');
-            const icon = document.createElement('i');
-            icon.className = 'fas fa-bolt';
-            flowBadge.append(icon, document.createElement('span'));
-        }
-        if (flowBadge.parentNode !== board) board.appendChild(flowBadge);
-        flowBadge.hidden = false;
-        flowBadge.dataset.level = flowLevel();
-        flowBadge.lastChild.textContent = flow;
-    }
-
-    function resetFlow() {
-        flow = 0;
-        renderFlow();
-    }
-
     // === Completed row / column / box: each shape gets its own flash ===
     function unitShape(unit) {
         if (unit.every(([ur]) => ur === unit[0][0])) return 'row';
@@ -539,29 +481,15 @@
         // units: completed row/col/box, each a list of [r, c] in board order.
         onCorrectInput({ r, c, val, units }) {
             if (!settings.boardFx) return;
-            // Flow: the longer the run of correct inputs, the bigger this feedback gets.
-            flow++;
-            const level = flowLevel();
-            renderFlow();
-
             // A combo hand banked by this same input already played its sound.
             const comboSounded = performance.now() - lastBankAt < 80;
-            if (!comboSounded) playSound('pop', val, level);
+            if (!comboSounded) playSound('pop', val);
 
             const cell = getCell(r * 9 + c);
             if (cell) {
-                cell.dataset.fxFlow = level;
                 restartClass(cell, 'fx-correct', CORRECT_MS);
                 const { x, y } = center(cell);
-                burst(x, y, FLOW_PARTICLES[level], FLOW_SPEED[level],
-                    level >= 2 ? BOARD_COLORS.concat(FLOW_COLORS) : BOARD_COLORS);
-            }
-
-            if (isFlowMilestone(flow)) {
-                playSound('flow', level);
-                if (cell) floatText(`${flow}연속!`, cell, Math.min(4, level + 1), 'fx-float-flow');
-                restartClass(flowBadge, 'fx-flow-pop', 500);
-                restartClass(document.querySelector('.board-container'), 'fx-flow-pulse', 700);
+                burst(x, y, 6, 2, BOARD_COLORS);
             }
 
             if (!units || units.length === 0) return;
@@ -595,15 +523,10 @@
                 const board = document.querySelector('.board-container');
                 if (units.length >= 3 && board) {
                     const { x, y } = center(board);
-                    burst(x, y, 50, 7, BOARD_COLORS.concat(FLOW_COLORS));
-                    restartClass(board, 'fx-flow-pulse', 700);
+                    burst(x, y, 50, 7, BOARD_COLORS.concat(COLORS));
+                    restartClass(board, 'fx-board-pulse', 700);
                 }
             }
-        },
-
-        // A new or restored game starts with no flow.
-        onNewGame() {
-            resetFlow();
         },
 
         onNumberComplete({ val, btn }) {
@@ -634,15 +557,6 @@
         // A life was lost. bar: the health bar that just emptied, livesLeft: lives remaining.
         onMistake({ r, c, bar, livesLeft } = {}) {
             if (!settings.boardFx) return;
-            // The flow breaks: the badge drops off.
-            if (flow >= FLOW_START && flowBadge) {
-                playSound('flowBreak');
-                const ghost = flowBadge.cloneNode(true);
-                ghost.classList.add('fx-flow-break');
-                flowBadge.parentNode.appendChild(ghost);
-                setTimeout(() => ghost.remove(), 600);
-            }
-            resetFlow();
             const final = livesLeft === 0;
             playSound(final ? 'lifeOut' : 'lifeLost', livesLeft);
             vibrate(final ? 'lifeOut' : 'mistake');
@@ -740,7 +654,6 @@
             if (!input) return;
             input.addEventListener('change', () => {
                 settings[key] = input.checked;
-                renderFlow();
                 saveSettings();
                 sync();
                 if (key === 'sound' && settings.sound) playSound(1);
