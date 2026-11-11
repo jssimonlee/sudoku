@@ -338,6 +338,25 @@
             render();
         },
 
+        // Snapshot for saving the game in progress (restored with setState).
+        getState() {
+            return { score, streak, hand: hand.slice(), lastInput, scoredCells: [...scoredCells] };
+        },
+
+        setState(state) {
+            if (!state || typeof state !== 'object') return;
+            const isCard = (card) => card && Number.isInteger(card.key) && Number.isInteger(card.val);
+            score = Number.isFinite(state.score) ? state.score : 0;
+            streak = Number.isInteger(state.streak) ? state.streak : 0;
+            hand = Array.isArray(state.hand) ? state.hand.filter(isCard).slice(0, HAND_SIZE) : [];
+            lastInput = state.lastInput && Number.isInteger(state.lastInput.key) && Array.isArray(state.lastInput.hand)
+                ? state.lastInput
+                : null;
+            scoredCells.clear();
+            if (Array.isArray(state.scoredCells)) state.scoredCells.forEach((key) => scoredCells.add(key));
+            render();
+        },
+
         syncCounts(newCounts) {
             counts = newCounts.slice();
             render();

@@ -1644,3 +1644,11 @@ main {
         animation-iteration-count: 1 !important;
     }
 }
+
+/* Taps on the board and buttons: no double-tap zoom, so double-tap auto-fill works on phones */
+.cell,
+.num-btn,
+.action-btn,
+.icon-btn {
+    touch-action: manipulation;
+}

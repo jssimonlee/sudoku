@@ -75,9 +75,116 @@ document.addEventListener('DOMContentLoaded', () => {
     const pauseOverlay = document.getElementById('pause-overlay');
     const pauseResumeBtn = document.getElementById('pause-resume-btn');
 
+    const SAVE_STORAGE_KEY = 'sudoku-saved-game';
+    const SAVE_VERSION = 1;
+
     // === Init Game ===
     restoreDifficulty();
-    initGame();
+    if (!restoreSavedGame()) initGame();
+
+    // Moves are allowed only while a round is running and not paused.
+    function canPlay() {
+        return !isPaused && !isRoundFinished && !overlay.classList.contains('active');
+    }
+
+    // === Save / restore the game in progress ===
+    function saveGame() {
+        if (isRoundFinished) return;
+        try {
+            localStorage.setItem(SAVE_STORAGE_KEY, JSON.stringify({
+                v: SAVE_VERSION,
+                difficulty: difficultySelect.value,
+                board,
+                initialBoard,
+                solution,
+                notes: notes.map(row => row.map(set => [...set])),
+                mistakes,
+                secondsElapsed,
+                history,
+                combo: typeof combo.getState === 'function' ? combo.getState() : null
+            }));
+        } catch {
+            // Playing still works without browser storage.
+        }
+    }
+
+    function clearSavedGame() {
+        try {
+            localStorage.removeItem(SAVE_STORAGE_KEY);
+        } catch {
+            // Nothing to clear.
+        }
+    }
+
+    function isGrid(grid) {
+        return Array.isArray(grid) && grid.length === 9 && grid.every(row =>
+            Array.isArray(row) && row.length === 9 && row.every(v => Number.isInteger(v) && v >= 0 && v <= 9));
+    }
+
+    function loadSavedGame() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(SAVE_STORAGE_KEY));
+            if (!saved || saved.v !== SAVE_VERSION) return null;
+            if (!isGrid(saved.board) || !isGrid(saved.initialBoard) || !isGrid(saved.solution)) return null;
+            if (!Number.isInteger(saved.mistakes) || saved.mistakes < 0 || saved.mistakes >= MAX_MISTAKES) return null;
+            const solved = saved.board.every((row, r) => row.every((v, c) => v === saved.solution[r][c]));
+            if (solved) return null;
+            return saved;
+        } catch {
+            return null;
+        }
+    }
+
+    function restoreSavedGame() {
+        const saved = loadSavedGame();
+        if (!saved) {
+            clearSavedGame();
+            return false;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(DIFFICULTY_SETTINGS, saved.difficulty)) {
+            difficultySelect.value = saved.difficulty;
+        }
+        board = saved.board;
+        initialBoard = saved.initialBoard;
+        solution = saved.solution;
+        notes = Array.from({ length: 9 }, (_, r) => Array.from({ length: 9 }, (__, c) => {
+            const list = Array.isArray(saved.notes) && Array.isArray(saved.notes[r]) ? saved.notes[r][c] : null;
+            return new Set(Array.isArray(list) ? list.filter(v => Number.isInteger(v) && v >= 1 && v <= 9) : []);
+        }));
+        mistakes = saved.mistakes;
+        history = Array.isArray(saved.history) ? saved.history : [];
+
+        overlay.classList.remove('active');
+        isPaused = false;
+        isRoundFinished = false;
+        isNotesMode = false;
+        selectedCell = null;
+        clearSelectedNumber();
+        updateMistakesDisplay();
+
+        resetTimer();
+        secondsElapsed = Number.isInteger(saved.secondsElapsed) && saved.secondsElapsed > 0 ? saved.secondsElapsed : 0;
+        timerEl.textContent = formatTime(secondsElapsed);
+        startTimer();
+
+        renderBoard();
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (board[r][c] === 0 && notes[r][c].size > 0) renderCellNotes(r, c);
+            }
+        }
+        combo.reset();
+        if (typeof combo.setState === 'function') combo.setState(saved.combo);
+        updateNumpadState({ silent: true });
+        return true;
+    }
+
+    // Save when the page is hidden or closed, so the latest second is kept too.
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) saveGame();
+    });
+    window.addEventListener('pagehide', saveGame);
 
     function restoreDifficulty() {
         try {
@@ -128,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
     numButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             if (btn.classList.contains('disabled')) return;
+            if (!canPlay()) return;
             const val = parseInt(btn.getAttribute('data-val'));
             setSelectedNumber(val); // Mark this number as active
             if (isNotesMode) {
@@ -256,6 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyShortcutInputToCell(r, c) {
+        if (!canPlay()) return false;
         if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return false;
 
         selectCell(r, c);
@@ -366,6 +475,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderBoard();
         combo.reset();
         updateNumpadState();
+        saveGame();
     }
 
     function togglePause() {
@@ -456,6 +566,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function inputNumber(val) {
+        if (!canPlay()) return;
         if (isNotesMode) {
             inputNote(val);
             return;
@@ -471,20 +582,26 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // A placed number is always correct, so another number there is a typo: ignore it.
+        if (board[r][c] !== 0) return;
+
         // Validate Input against Solution
         if (solution[r][c] === val) {
-            // Correct logic — clear notes for this cell
+            // Correct logic — clear notes for this cell (kept in history so Undo brings them back)
+            const removedNotes = [];
+            if (notes[r][c].size > 0) removedNotes.push([r, c, [...notes[r][c]]]);
             notes[r][c].clear();
-            saveHistory(r, c, board[r][c]);
             board[r][c] = val;
             updateCellDOM(r, c, val, true);
             // Remove this number from notes of all related cells (row/col/box)
-            removeNoteFromRelatedCells(r, c, val);
+            removeNoteFromRelatedCells(r, c, val).forEach(([nr, nc]) => removedNotes.push([nr, nc, [val]]));
+            saveHistory(r, c, 0, removedNotes);
             combo.onCorrect(r, c, val);
             emitFx('onCorrectInput', { r, c, val, units: getCompletedUnits(r, c) });
             updateNumpadState();
             selectCell(r, c);
             checkWin();
+            saveGame();
 
         } else {
             // Incorrect logic
@@ -502,22 +619,32 @@ document.addEventListener('DOMContentLoaded', () => {
             cellEl.textContent = val;
 
             setTimeout(() => {
+                // A new game may have rebuilt the board in the meantime.
+                if (!cellEl.isConnected) return;
                 cellEl.classList.remove('error-animation');
-                cellEl.textContent = board[r][c] !== 0 ? board[r][c] : '';
+                // Put the cell's notes back instead of leaving it blank.
+                if (board[r][c] !== 0) cellEl.textContent = board[r][c];
+                else renderCellNotes(r, c);
             }, 500);
 
             if (mistakes >= MAX_MISTAKES) gameOver(false);
+            else saveGame();
         }
     }
 
     function eraseCell() {
+        if (!canPlay()) return;
         if (!selectedCell) return;
         const { r, c } = selectedCell;
         if (initialBoard[r][c] !== 0) return;
 
+        const prevVal = board[r][c];
+        const clearedNotes = notes[r][c].size > 0 ? [[r, c, [...notes[r][c]]]] : [];
+        // Erasing a number or notes can be undone.
+        if (prevVal !== 0 || clearedNotes.length > 0) saveHistory(r, c, prevVal, clearedNotes);
+
         // If there's a placed number, erase it
-        if (board[r][c] !== 0) {
-            saveHistory(r, c, board[r][c]);
+        if (prevVal !== 0) {
             board[r][c] = 0;
             updateCellDOM(r, c, '', false);
             combo.onRemove(r, c);
@@ -529,10 +656,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         selectCell(r, c);
         updateNumpadState();
+        saveGame();
     }
 
     // === Notes Mode ===
     function inputNote(val) {
+        if (!canPlay()) return;
         if (!selectedCell) return;
         const { r, c } = selectedCell;
         if (initialBoard[r][c] !== 0) return; // Can't note on initial clues
@@ -545,6 +674,7 @@ document.addEventListener('DOMContentLoaded', () => {
             notes[r][c].add(val);
         }
         renderCellNotes(r, c);
+        saveGame();
     }
 
     function renderCellNotes(r, c) {
@@ -568,57 +698,57 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // When a number is confirmed in (r,c), remove it from notes of all
-    // cells in the same row, column, and 3×3 box
+    // cells in the same row, column, and 3×3 box. Returns the cells that changed.
     function removeNoteFromRelatedCells(r, c, val) {
         const boxRowStart = Math.floor(r / 3) * 3;
         const boxColStart = Math.floor(c / 3) * 3;
+        const changed = [];
+        const removeAt = (nr, nc) => {
+            if (!notes[nr][nc].has(val)) return;
+            notes[nr][nc].delete(val);
+            renderCellNotes(nr, nc);
+            changed.push([nr, nc]);
+        };
 
         for (let i = 0; i < 9; i++) {
-            // Same row
-            if (notes[r][i].has(val)) {
-                notes[r][i].delete(val);
-                renderCellNotes(r, i);
-            }
-            // Same column
-            if (notes[i][c].has(val)) {
-                notes[i][c].delete(val);
-                renderCellNotes(i, c);
-            }
+            removeAt(r, i); // Same row
+            removeAt(i, c); // Same column
         }
         // Same 3×3 box
         for (let br = boxRowStart; br < boxRowStart + 3; br++) {
             for (let bc = boxColStart; bc < boxColStart + 3; bc++) {
-                if (notes[br][bc].has(val)) {
-                    notes[br][bc].delete(val);
-                    renderCellNotes(br, bc);
-                }
+                removeAt(br, bc);
             }
         }
+        return changed;
     }
 
-
-
     function undoMove() {
+        if (!canPlay()) return;
         if (history.length === 0) return;
 
-        const { r, c, prevVal } = history.pop();
+        const { r, c, prevVal, notes: removedNotes } = history.pop();
         if (board[r][c] !== 0) combo.onRemove(r, c);
         board[r][c] = prevVal;
         updateCellDOM(r, c, prevVal !== 0 ? prevVal : '', prevVal !== 0 && initialBoard[r][c] === 0);
+
+        // Bring back the notes this move cleared (only on cells that are still empty).
+        if (Array.isArray(removedNotes)) {
+            removedNotes.forEach(([nr, nc, vals]) => {
+                if (board[nr][nc] !== 0) return;
+                vals.forEach(v => notes[nr][nc].add(v));
+                renderCellNotes(nr, nc);
+            });
+        }
+
         selectCell(r, c);
         updateNumpadState();
+        saveGame();
     }
 
-    function giveHint() {
-        if (!selectedCell) return;
-        const { r, c } = selectedCell;
-        if (board[r][c] !== 0) return; // Only hint empty cells
-
-        inputNumber(solution[r][c]);
-    }
-
-    function saveHistory(r, c, prevVal) {
-        history.push({ r, c, prevVal });
+    // removedNotes: [[r, c, [values]]] notes cleared by this move, restored on undo.
+    function saveHistory(r, c, prevVal, removedNotes = []) {
+        history.push({ r, c, prevVal, notes: removedNotes });
     }
 
     function updateCellDOM(r, c, val, isUserInput) {
@@ -650,7 +780,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function updateNumpadState() {
+    // silent: skip the "number complete" celebration (e.g. when restoring a saved game).
+    function updateNumpadState({ silent = false } = {}) {
         const counts = Array(10).fill(0);
         for (let r = 0; r < 9; r++) {
             for (let c = 0; c < 9; c++) {
@@ -667,7 +798,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (counts[val] >= 9) {
                 btn.classList.add('disabled');
                 // Trigger celebration only when this number JUST became complete
-                if (!wasDisabled) celebrateNumber(val, btn);
+                if (!wasDisabled && !silent) celebrateNumber(val, btn);
             } else {
                 btn.classList.remove('disabled');
             }
@@ -733,6 +864,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function gameOver(isWin) {
         clearInterval(timerInterval);
         isRoundFinished = true;
+        clearSavedGame();
         isPaused = false;
         pauseOverlay.classList.remove('active');
         pauseIcon.className = 'fas fa-pause';
@@ -825,6 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
         timerInterval = setInterval(() => {
             secondsElapsed++;
             timerEl.textContent = formatTime(secondsElapsed);
+            if (secondsElapsed % 5 === 0) saveGame();
         }, 1000);
     }
 
