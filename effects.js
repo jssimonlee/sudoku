@@ -284,8 +284,28 @@
         el.classList.remove(className);
         void el.offsetWidth; // reflow to restart the animation
         el.classList.add(className);
-        setTimeout(() => el.classList.remove(className), duration);
+        // An older timer for the same class must not cut this run short.
+        const timers = el._fxTimers || (el._fxTimers = {});
+        clearTimeout(timers[className]);
+        timers[className] = setTimeout(() => el.classList.remove(className), duration);
     }
+
+    // Board cell effects: short and light so fast play is never blocked.
+    const CORRECT_MS = 320;
+    const WAVE_MS = 380;
+    const WAVE_STEP_MS = 20;
+    let waveTimers = [];
+
+    // The next move (tap or key) ends any sweep still running, so effects never pile up.
+    function clearBoardWaves() {
+        waveTimers.forEach(clearTimeout);
+        waveTimers = [];
+        document.querySelectorAll('.cell.fx-unit-wave, .cell.fx-correct').forEach((el) => {
+            el.classList.remove('fx-unit-wave', 'fx-correct');
+        });
+    }
+    document.addEventListener('pointerdown', clearBoardWaves, true);
+    window.addEventListener('keydown', clearBoardWaves, true);
 
     // Light up the hand's cells in input order.
     function cellWave(keys, tier) {
@@ -443,24 +463,24 @@
 
             const cell = getCell(r * 9 + c);
             if (cell) {
-                restartClass(cell, 'fx-correct', 600);
+                restartClass(cell, 'fx-correct', CORRECT_MS);
                 const { x, y } = center(cell);
-                burst(x, y, 8, 2.5, BOARD_COLORS);
+                burst(x, y, 6, 2, BOARD_COLORS);
             }
 
             if (!units || units.length === 0) return;
 
             units.forEach((unit) => {
-                // Wave outward from the cell that completed the line.
+                // A light sweep outward from the cell that completed the line (~0.5s in total).
                 unit.slice()
                     .sort((a, b) => (Math.abs(a[0] - r) + Math.abs(a[1] - c)) - (Math.abs(b[0] - r) + Math.abs(b[1] - c)))
                     .forEach(([ur, uc], i) => {
-                        setTimeout(() => restartClass(getCell(ur * 9 + uc), 'fx-unit-wave', 750), i * 45);
+                        waveTimers.push(setTimeout(() => restartClass(getCell(ur * 9 + uc), 'fx-unit-wave', WAVE_MS), i * WAVE_STEP_MS));
                     });
                 const mid = getCell(unit[4][0] * 9 + unit[4][1]);
                 if (mid) {
                     const { x, y } = center(mid);
-                    burst(x, y, 18, 4.5, BOARD_COLORS);
+                    burst(x, y, 10, 3.5, BOARD_COLORS);
                 }
             });
 
