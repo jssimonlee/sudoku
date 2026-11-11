@@ -1688,6 +1688,83 @@ main {
     100% { box-shadow: 0 0 0 22px rgba(96, 165, 250, 0); }
 }
 
+/* === Number stamp: a correct number drops onto the cell and settles === */
+/* !important: cells carry an inline pop-in animation that would otherwise win. */
+.cell.fx-stamp {
+    position: relative;
+    z-index: 2;
+    animation: fxStamp 0.28s cubic-bezier(0.3, 1.3, 0.5, 1) both !important;
+}
+
+@keyframes fxStamp {
+    0% { transform: scale(1.6); opacity: 0.25; }
+    50% { transform: scale(0.88); opacity: 1; }
+    78% { transform: scale(1.05); }
+    100% { transform: none; }
+}
+
+/* === Numpad feel === */
+/* Dip and spring back; no end keyframe, so it settles on the button's own transform
+   (a selected button stays slightly enlarged). */
+.num-btn.fx-press {
+    animation: fxPress 0.24s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes fxPress {
+    0% { transform: scale(0.86); }
+    60% { transform: scale(1.1); }
+}
+
+/* How many of this number are still missing (top-right; the check mark takes over at 0) */
+.fx-rich .num-btn:not(.disabled)[data-left]::after {
+    content: attr(data-left);
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 0.62rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-secondary);
+    opacity: 0.75;
+}
+
+.fx-rich .num-btn.fx-left-tick:not(.disabled)::after {
+    animation: fxLeftTick 0.35s ease-out;
+}
+
+@keyframes fxLeftTick {
+    0% { transform: translateY(-5px) scale(1.7); color: var(--accent-color); opacity: 1; }
+    100% { transform: none; }
+}
+
+/* One left: the button glows softly */
+.fx-rich .num-btn:not(.disabled)[data-left="1"] {
+    border-color: rgba(16, 185, 129, 0.7);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
+    animation: fxLastOne 1.6s ease-in-out infinite;
+}
+
+.fx-rich .num-btn:not(.disabled)[data-left="1"]::after {
+    color: var(--success-color);
+    opacity: 1;
+}
+
+.fx-rich .num-btn.fx-press:not(.disabled)[data-left="1"] {
+    animation: fxPress 0.24s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes fxLastOne {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 10px 2px rgba(16, 185, 129, 0.45); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fx-rich .num-btn:not(.disabled)[data-left="1"],
+    .fx-rich .num-btn.fx-left-tick:not(.disabled)::after {
+        animation: none;
+    }
+}
+
 /* === Completed row / column / box === */
 /* Every number in the unit hops, in the same order as the sweep.
    !important: cells carry an inline pop-in animation that would otherwise win. */

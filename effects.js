@@ -146,7 +146,7 @@
     }
 
     // === Vibration ===
-    const VIBRATION = { 3: 40, 4: [60, 40, 60, 40, 120], break: 90, unit: 25, number: 40, win: [80, 50, 80, 50, 200], mistake: [70, 40, 50], lifeOut: [120, 60, 120, 60, 300] };
+    const VIBRATION = { tap: 10, 3: 40, 4: [60, 40, 60, 40, 120], break: 90, unit: 25, number: 40, win: [80, 50, 80, 50, 200], mistake: [70, 40, 50], lifeOut: [120, 60, 120, 60, 300] };
 
     function vibrate(name) {
         if (!settings.vibrate || !VIBRATION[name] || !navigator.vibrate) return;
@@ -292,6 +292,7 @@
 
     // Board cell effects: short and light so fast play is never blocked.
     const CORRECT_MS = 320;
+    const STAMP_MS = 300;
     const WAVE_MS = 380;
     const WAVE_STEP_MS = 20;
     let waveTimers = [];
@@ -300,10 +301,29 @@
     function clearBoardWaves() {
         waveTimers.forEach(clearTimeout);
         waveTimers = [];
-        document.querySelectorAll('.cell.fx-unit-wave, .cell.fx-correct, .cell.fx-unit-hop').forEach((el) => {
-            el.classList.remove('fx-unit-wave', 'fx-correct', 'fx-unit-hop');
+        document.querySelectorAll('.cell.fx-unit-wave, .cell.fx-correct, .cell.fx-unit-hop, .cell.fx-stamp').forEach((el) => {
+            el.classList.remove('fx-unit-wave', 'fx-correct', 'fx-unit-hop', 'fx-stamp');
         });
     }
+
+    // === Numpad feel: a button dips and springs back when its number is played ===
+    function numButton(val) {
+        return document.querySelector(`.num-btn[data-val="${val}"]`);
+    }
+
+    function pressNumButton(btn) {
+        if (!settings.boardFx || reducedMotion || !btn || btn.classList.contains('disabled')) return;
+        restartClass(btn, 'fx-press', 260);
+    }
+
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest && e.target.closest('.num-btn');
+        if (btn) pressNumButton(btn);
+    });
+    // Typing 1-9 presses the matching button too (skipped while a popup has the keyboard).
+    document.addEventListener('keydown', (e) => {
+        if (e.key >= '1' && e.key <= '9' && !e.ctrlKey && !e.metaKey && !e.altKey) pressNumButton(numButton(e.key));
+    });
     document.addEventListener('pointerdown', clearBoardWaves, true);
     window.addEventListener('keydown', clearBoardWaves, true);
 
@@ -488,9 +508,14 @@
             const cell = getCell(r * 9 + c);
             if (cell) {
                 restartClass(cell, 'fx-correct', CORRECT_MS);
+                // The number lands on the cell like a stamp.
+                if (!reducedMotion) restartClass(cell, 'fx-stamp', STAMP_MS);
                 const { x, y } = center(cell);
                 burst(x, y, 6, 2, BOARD_COLORS);
             }
+            vibrate('tap');
+            // The count left on the numpad button ticks down.
+            restartClass(numButton(val), 'fx-left-tick', 350);
 
             if (!units || units.length === 0) return;
 

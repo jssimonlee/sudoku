@@ -837,6 +837,8 @@ document.addEventListener('DOMContentLoaded', () => {
         numButtons.forEach(btn => {
             const val = parseInt(btn.getAttribute('data-val'));
             const wasDisabled = btn.classList.contains('disabled');
+            // How many of this number are still missing (shown on the button by the rich effects).
+            btn.dataset.left = String(Math.max(0, 9 - counts[val]));
 
             if (counts[val] >= 9) {
                 btn.classList.add('disabled');
