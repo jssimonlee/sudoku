@@ -42,8 +42,8 @@
     const skipBtn = document.getElementById('lb-skip');
     const sendBtn = document.getElementById('lb-send');
     const resultEl = document.getElementById('lb-result');
-    const tabs = document.querySelectorAll('#lb-tabs [data-kind]');
-    const diffBtns = document.querySelectorAll('#lb-diffs [data-diff]');
+    const boardSelect = document.getElementById('lb-board');
+    const headMain = document.getElementById('lb-head-main');
     const table = document.getElementById('lb-table');
     const statusEl = document.getElementById('lb-status');
 
@@ -143,65 +143,84 @@
         statusEl.hidden = !text;
     }
 
-    function renderView(boards) {
-        tabs.forEach((tab) => {
-            const active = tab.dataset.kind === view.kind;
-            tab.classList.toggle('active', active);
-            tab.setAttribute('aria-selected', String(active));
+    // Dropdown with all 12 boards, grouped by mode.
+    function buildBoardSelect() {
+        boardSelect.replaceChildren();
+        ['normal', 'combo-time', 'combo-score'].forEach((kind) => {
+            const group = document.createElement('optgroup');
+            group.label = KIND_LABEL[kind];
+            DIFFICULTIES.forEach((d) => {
+                const opt = document.createElement('option');
+                opt.value = boardKey(kind, d);
+                opt.textContent = `${KIND_LABEL[kind]} · ${DIFF_LABEL[d]}`;
+                group.appendChild(opt);
+            });
+            boardSelect.appendChild(group);
         });
-        diffBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.diff === view.difficulty));
+    }
+    buildBoardSelect();
+
+    const MEDALS = ['🥇', '🥈', '🥉'];
+
+    function makeCell(className, text) {
+        const span = document.createElement('span');
+        span.className = className;
+        span.textContent = text;   // textContent only: never HTML
+        return span;
+    }
+
+    // Always 10 rows like an arcade high-score table; empty places show "---".
+    function renderView(boards) {
+        boardSelect.value = boardKey(view.kind, view.difficulty);
+        headMain.textContent = view.kind === 'combo-score' ? '점수' : '시간';
 
         const list = (boards && boards[boardKey(view.kind, view.difficulty)]) || [];
         table.replaceChildren();
-        if (list.length === 0) {
-            const empty = document.createElement('li');
-            empty.className = 'lb-empty';
-            empty.textContent = '아직 기록이 없어요. 첫 기록의 주인공이 되어 보세요!';
-            table.appendChild(empty);
-            return;
-        }
-        list.forEach((row, i) => {
+        for (let i = 0; i < TOP_N; i++) {
+            const row = list[i];
             const li = document.createElement('li');
-            li.className = 'lb-row' + (view.highlight === i + 1 ? ' lb-me' : '') + (i < 3 ? ` lb-top${i + 1}` : '');
-            const rank = document.createElement('span');
-            rank.className = 'lb-rank';
-            rank.textContent = i + 1;
-            const name = document.createElement('span');
-            name.className = 'lb-name';
-            name.textContent = row.initials;   // textContent only: never HTML
-            const main = document.createElement('span');
-            main.className = 'lb-main';
-            main.textContent = recordText(view.kind, row);
-            const sub = document.createElement('span');
-            sub.className = 'lb-sub';
-            sub.textContent = view.kind === 'combo-score' ? formatTime(row.time) : `실수 ${row.mistakes}`;
-            li.append(rank, name, main, sub);
+            li.className = 'lb-row'
+                + (i < 3 ? ` lb-top${i + 1}` : '')
+                + (row ? '' : ' lb-row-empty')
+                + (row && view.highlight === i + 1 ? ' lb-me' : '');
+            li.style.setProperty('--i', i);
+            li.append(
+                makeCell('lb-rank', i < 3 ? MEDALS[i] : String(i + 1)),
+                makeCell('lb-name', row ? row.initials : '---'),
+                makeCell('lb-main', row ? recordText(view.kind, row) : (view.kind === 'combo-score' ? '-' : '--:--'))
+            );
+            if (row) {
+                li.title = view.kind === 'combo-score'
+                    ? `시간 ${formatTime(row.time)} · 실수 ${row.mistakes}`
+                    : `실수 ${row.mistakes}`;
+            }
             table.appendChild(li);
-        });
+        }
+        setStatus(list.length === 0 ? '아직 기록이 없어요. 첫 1위의 주인공이 되어 보세요!' : '');
     }
 
     async function showView(kind, difficulty, { highlight = null, maxAge = VIEW_MAX_AGE } = {}) {
         view = { kind, difficulty, highlight };
         const cache = readCache();
         renderView(cache && cache.boards);
-        setStatus(cache ? '' : '불러오는 중…');
+        if (!cache) setStatus('불러오는 중…');
         try {
             const fresh = await getBoards(maxAge);
             if (view.kind === kind && view.difficulty === difficulty) renderView(fresh.boards);
-            setStatus('');
         } catch {
             setStatus(cache ? '최신 순위를 불러오지 못했어요 (저장된 순위 표시 중)' : '순위를 불러오지 못했어요.');
         }
     }
 
-    tabs.forEach((tab) => tab.addEventListener('click', () => {
-        view.highlight = null;
-        showView(tab.dataset.kind, view.difficulty);
-    }));
-    diffBtns.forEach((btn) => btn.addEventListener('click', () => {
-        view.highlight = null;
-        showView(view.kind, btn.dataset.diff);
-    }));
+    boardSelect.addEventListener('change', () => {
+        const [kind, difficulty] = splitBoardKey(boardSelect.value);
+        if (kind) showView(kind, difficulty);
+    });
+
+    function splitBoardKey(key) {
+        const d = DIFFICULTIES.find((diff) => key.endsWith(`-${diff}`));
+        return d ? [key.slice(0, -(d.length + 1)), d] : [null, null];
+    }
 
     // Header trophy: pause a running game, then show the boards for the current mode.
     toggleBtn.addEventListener('click', () => {
@@ -295,7 +314,6 @@
         form.hidden = false;
         view = { kind: qualifying[0].kind, difficulty: record.difficulty, highlight: null };
         renderView(readCache() && readCache().boards);
-        setStatus('');
         openModal();
         initialsInput.focus();
         initialsInput.select();

@@ -194,16 +194,13 @@
                     </form>
 
                     <p class="lb-result" id="lb-result" role="status" hidden></p>
-                    <div class="lb-tabs" id="lb-tabs" role="tablist">
-                        <button type="button" role="tab" data-kind="normal">일반</button>
-                        <button type="button" role="tab" data-kind="combo-time">콤보 시간</button>
-                        <button type="button" role="tab" data-kind="combo-score">콤보 점수</button>
+                    <!-- One dropdown for all 12 boards; opens on the current game's mode and level -->
+                    <div class="lb-picker">
+                        <select id="lb-board" aria-label="순위표 선택"></select>
+                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
                     </div>
-                    <div class="lb-diffs" id="lb-diffs">
-                        <button type="button" data-diff="easy">Easy</button>
-                        <button type="button" data-diff="medium">Medium</button>
-                        <button type="button" data-diff="hard">Hard</button>
-                        <button type="button" data-diff="expert">Expert</button>
+                    <div class="lb-head" aria-hidden="true">
+                        <span>순위</span><span>이름</span><span id="lb-head-main">기록</span>
                     </div>
                     <ol class="lb-table" id="lb-table"></ol>
                     <p class="lb-status" id="lb-status" hidden></p>
