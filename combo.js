@@ -4,6 +4,7 @@
 // Flow: each correct input adds a card to the hand (max 5). Points are banked only when
 // the hand ends: a top hand / 5 cards (banked immediately), or an input that can't
 // continue any pattern (the current hand is banked and the new card starts a new hand).
+// A hand is also banked early when no number left on the board could raise it.
 // A mistake throws away the unbanked hand.
 (function () {
     const STORAGE_KEY = 'sudoku-combo-mode';
@@ -87,6 +88,31 @@
             if (isValidHand(seq.concat(v))) return false;
         }
         return true;
+    }
+
+    // Best points reachable from seq (itself included) using only numbers still left
+    // on the board. `left[v]` = how many more times v can be entered.
+    function bestReachable(seq, left) {
+        const value = handValue(seq);
+        let best = value ? value.points : 0;
+        if (seq.length >= HAND_SIZE) return best;
+        for (let v = 1; v <= 9; v++) {
+            if (left[v] <= 0) continue;
+            const next = seq.concat(v);
+            if (!isValidHand(next)) continue;
+            left[v]--;
+            best = Math.max(best, bestReachable(next, left));
+            left[v]++;
+        }
+        return best;
+    }
+
+    // Can the hand still become worth more, given what is left to enter?
+    // (e.g. 4 4 4 4 with no 4 left, or 7 7 7 with no 7 and no other number left twice)
+    function canImprove(seq, numberCounts) {
+        const left = numberCounts.map((n) => Math.max(0, 9 - n));
+        const value = handValue(seq);
+        return bestReachable(seq, left) > (value ? value.points : 0);
     }
 
     // === State ===
@@ -359,6 +385,9 @@
 
         syncCounts(newCounts) {
             counts = newCounts.slice();
+            // Nothing left on the board can raise this hand: bank it now instead of
+            // waiting for a card that can never come. (lastInput is kept, so undo refunds it.)
+            if (enabled && handValue(handValues()) && !canImprove(handValues(), counts)) bankHand();
             render();
         },
 
