@@ -22,6 +22,26 @@ document.addEventListener('DOMContentLoaded', () => {
         onCorrect() {}, onMistake() {}, onRemove() {}
     };
 
+    // Optional richer game effects (effects.js); does nothing when absent or turned off
+    function emitFx(name, payload) {
+        const fx = window.GameEffects;
+        if (fx && typeof fx[name] === 'function') fx[name](payload);
+    }
+
+    // Rows / columns / boxes through (r, c) that are now completely filled.
+    // Cells are listed in board order so index 4 is the middle of the unit.
+    function getCompletedUnits(r, c) {
+        const row = Array.from({ length: 9 }, (_, col) => [r, col]);
+        const col = Array.from({ length: 9 }, (_, row) => [row, c]);
+        const box = [];
+        const br = Math.floor(r / 3) * 3;
+        const bc = Math.floor(c / 3) * 3;
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) box.push([br + i, bc + j]);
+        }
+        return [row, col, box].filter((unit) => unit.every(([ur, uc]) => board[ur][uc] !== 0));
+    }
+
     let timerInterval;
     let secondsElapsed = 0;
 
@@ -534,6 +554,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Remove this number from notes of all related cells (row/col/box)
             removeNoteFromRelatedCells(r, c, val);
             combo.onCorrect(r, c, val);
+            emitFx('onCorrectInput', { r, c, val, units: getCompletedUnits(r, c) });
             updateNumpadState();
             selectCell(r, c);
             checkWin();
@@ -543,6 +564,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mistakes++;
             updateMistakesDisplay();
             combo.onMistake();
+            emitFx('onMistake', { r, c });
 
             const cellEl = getCellElement(r, c);
             cellEl.classList.add('error-animation');
@@ -741,6 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Cascade wave animation for a completed number
     function celebrateNumber(val, btnEl) {
+        emitFx('onNumberComplete', { val, btn: btnEl });
         // Collect all cells with this number in board order (top-left to bottom-right)
         const cells = [];
         for (let r = 0; r < 9; r++) {
@@ -799,6 +822,7 @@ document.addEventListener('DOMContentLoaded', () => {
         overlayContent.classList.remove('win-state', 'error-state');
 
         if (isWin) {
+            emitFx('onWin');
             overlayContent.classList.add('win-state');
             overlayKicker.textContent = "퍼즐 완성";
             overlayTitle.textContent = "완벽한 마무리";

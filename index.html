@@ -21,6 +21,10 @@
             <div class="header-top">
                 <h1>Sudoku</h1>
                 <div class="header-actions">
+                    <!-- Effect settings (richer game effects ON/OFF, sound, vibration) -->
+                    <button id="fx-toggle" class="icon-btn" aria-label="효과 설정" title="효과 설정">
+                        <i class="fas fa-magic"></i>
+                    </button>
                     <!-- Combo mode (order-based scoring mini game) -->
                     <button id="combo-toggle" class="icon-btn" aria-label="Toggle Combo Mode" aria-pressed="false"
                         title="콤보 모드: 입력 순서로 족보를 만들어 점수 얻기">
@@ -129,20 +133,39 @@
                     </ul>
                     <div class="combo-paytable" id="combo-paytable"></div>
 
-                    <h4 class="fx-settings-title">효과 설정</h4>
+                    <button class="fx-open-btn" id="combo-open-fx" type="button">
+                        <i class="fas fa-magic"></i><span>효과·소리 설정</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Effect Settings Popup -->
+            <div class="combo-modal" id="fx-modal" role="dialog" aria-modal="true" aria-labelledby="fx-modal-title" hidden>
+                <div class="combo-modal-content">
+                    <div class="combo-modal-header">
+                        <h3 id="fx-modal-title">효과 설정</h3>
+                        <button class="combo-modal-close" id="fx-modal-close" type="button" aria-label="닫기">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                     <div class="fx-settings">
                         <label class="fx-setting">
-                            <span><b>게임 효과</b><small>칸 빛남, 파티클, 배너, 흔들림</small></span>
+                            <span><b>화려한 게임 효과</b><small>정답 반짝임, 줄·박스 완성 물결, 숫자 완성, 클리어 컨페티. 끄면 기본 효과만</small></span>
+                            <input type="checkbox" id="fx-setting-board" checked>
+                            <span class="fx-switch" aria-hidden="true"></span>
+                        </label>
+                        <label class="fx-setting">
+                            <span><b>콤보 효과</b><small>콤보 모드의 족보 확정 연출 (칸 빛남, 배너, 흔들림)</small></span>
                             <input type="checkbox" id="fx-setting-effects" checked>
                             <span class="fx-switch" aria-hidden="true"></span>
                         </label>
                         <label class="fx-setting">
-                            <span><b>소리</b><small>족보가 높을수록 화려한 효과음</small></span>
+                            <span><b>소리</b><small>위 효과가 켜져 있을 때 나는 효과음</small></span>
                             <input type="checkbox" id="fx-setting-sound" checked>
                             <span class="fx-switch" aria-hidden="true"></span>
                         </label>
                         <label class="fx-setting">
-                            <span><b>진동</b><small>큰 족보와 실수 시 (모바일)</small></span>
+                            <span><b>진동</b><small>완성·실수 시 (모바일)</small></span>
                             <input type="checkbox" id="fx-setting-vibrate" checked>
                             <span class="fx-switch" aria-hidden="true"></span>
                         </label>

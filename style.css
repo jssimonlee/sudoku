@@ -1587,3 +1587,106 @@ main {
         animation-iteration-count: 1 !important;
     }
 }
+
+/* === Normal game effects (header magic button, board fx) === */
+#fx-toggle i {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+}
+
+#fx-toggle.fx-active {
+    border-color: #60a5fa;
+    background: rgba(96, 165, 250, 0.15);
+}
+
+#fx-toggle.fx-active i {
+    color: #3b82f6;
+}
+
+.fx-open-btn {
+    width: 100%;
+    margin-top: 14px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 12px;
+    border: 1px solid var(--surface-border);
+    background: transparent;
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.fx-open-btn:hover {
+    border-color: #f59e0b;
+    color: #f59e0b;
+}
+
+/* Correct input: quick blue glow */
+.cell.fx-correct { animation: fxCorrect 0.55s ease-out !important; }
+
+@keyframes fxCorrect {
+    0% { background: rgba(96, 165, 250, 0.5); transform: scale(1); }
+    35% { transform: scale(1.1); box-shadow: 0 0 14px 2px rgba(96, 165, 250, 0.5); }
+    100% { background: transparent; transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Row / column / box completed: wave */
+.cell.fx-unit-wave { animation: fxUnitWave 0.75s ease-out !important; }
+
+@keyframes fxUnitWave {
+    0% { background: rgba(56, 189, 248, 0.15); transform: scale(1); }
+    30% { background: rgba(56, 189, 248, 0.55); transform: scale(1.12); color: #fff; box-shadow: 0 0 16px 3px rgba(56, 189, 248, 0.45); }
+    100% { background: transparent; transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+}
+
+.cell.fx-correct,
+.cell.fx-unit-wave {
+    position: relative;
+    z-index: 2;
+}
+
+.fx-float.fx-float-board {
+    color: #3b82f6;
+}
+
+[data-theme="dark"] .fx-float.fx-float-board {
+    color: #93c5fd;
+}
+
+.fx-banner.fx-banner-board {
+    background: linear-gradient(135deg, #3b82f6, #a78bfa 50%, #34d399);
+    box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.25), 0 20px 60px rgba(59, 130, 246, 0.45);
+}
+
+@media (max-width: 480px) {
+    /* Five header buttons next to the title on phones */
+    h1 {
+        font-size: 1.6rem;
+    }
+
+    .header-actions {
+        gap: 5px;
+    }
+
+    .header-actions .icon-btn {
+        width: 36px;
+        height: 36px;
+    }
+
+    .header-actions .icon-btn i {
+        font-size: 1.1rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cell.fx-correct,
+    .cell.fx-unit-wave {
+        animation-duration: 0.01ms !important;
+    }
+}

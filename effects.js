@@ -3,7 +3,9 @@
 // Sounds are synthesized with Web Audio: no audio files needed.
 (function () {
     const SETTINGS_KEY = 'sudoku-combo-effects';
-    const DEFAULT_SETTINGS = { effects: true, sound: true, vibrate: true };
+    // boardFx: richer effects for the normal Sudoku game (off = the original effects only)
+    // effects: combo-mode visuals. sound / vibrate are shared by both.
+    const DEFAULT_SETTINGS = { boardFx: true, effects: true, sound: true, vibrate: true };
 
     // Hand id → effect tier (1 = small … 4 = biggest)
     const TIER_BY_HAND = {
@@ -14,6 +16,7 @@
     };
 
     const COLORS = ['#f59e0b', '#fbbf24', '#fb923c', '#f472b6', '#60a5fa', '#34d399', '#a78bfa'];
+    const BOARD_COLORS = ['#60a5fa', '#38bdf8', '#34d399', '#a78bfa', '#93c5fd'];
 
     const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -94,18 +97,44 @@
         break() {
             tone(160, 0, 0.32, { type: 'sawtooth', gain: 0.22, slideTo: 60 });
             tone(90, 0.02, 0.25, { type: 'sine', gain: 0.5, slideTo: 45 });
+        },
+
+        // --- Normal game ---
+        // Each number has its own note (1 = C5 … 9 = D6), so input order plays a melody.
+        pop(val) {
+            const f = SCALE[val] || N.C5;
+            tone(f, 0, 0.14, { type: 'sine', gain: 0.35 });
+            tone(f * 2, 0, 0.06, { type: 'triangle', gain: 0.08 });
+        },
+        unit(count) {
+            const notes = count >= 2 ? [N.C6, N.E6, N.G6, N.C7] : [N.G5, N.C6, N.E6];
+            notes.forEach((f, i) => tone(f, 0.05 + i * 0.06, 0.22, { type: 'triangle', gain: 0.32 }));
+        },
+        number() {
+            [N.C5, N.G5, N.C6, N.E6, N.G6].forEach((f, i) => tone(f, i * 0.05, 0.3, { type: 'sine', gain: 0.32 }));
+        },
+        win() {
+            [N.C5, N.E5, N.G5, N.C6].forEach((f, i) => tone(f, i * 0.12, 0.2, { type: 'square', gain: 0.16 }));
+            [N.C5, N.E5, N.G5, N.C6, N.E6].forEach((f) => tone(f, 0.5, 1.3, { type: 'triangle', gain: 0.28 }));
+            [N.C7, N.G6, N.C7, N.E6, N.G6, N.C7].forEach((f, i) => tone(f, 0.6 + i * 0.09, 0.12, { type: 'sine', gain: 0.14 }));
+        },
+        mistake() {
+            tone(220, 0, 0.18, { type: 'square', gain: 0.14, slideTo: 150 });
+            tone(110, 0, 0.2, { type: 'sine', gain: 0.35 });
         }
     };
 
-    function playSound(name) {
+    const SCALE = { 1: 523.25, 2: 587.33, 3: 659.25, 4: 698.46, 5: 783.99, 6: 880, 7: 987.77, 8: 1046.5, 9: 1174.66 };
+
+    function playSound(name, arg) {
         if (!settings.sound) return;
         try {
-            SOUNDS[name]();
+            SOUNDS[name](arg);
         } catch (e) { /* audio unavailable */ }
     }
 
     // === Vibration ===
-    const VIBRATION = { 3: 40, 4: [60, 40, 60, 40, 120], break: 90 };
+    const VIBRATION = { 3: 40, 4: [60, 40, 60, 40, 120], break: 90, unit: 25, number: 40, win: [80, 50, 80, 50, 200], mistake: 70 };
 
     function vibrate(name) {
         if (!settings.vibrate || !VIBRATION[name] || !navigator.vibrate) return;
@@ -140,11 +169,11 @@
         ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    function randomColor() {
-        return COLORS[Math.floor(Math.random() * COLORS.length)];
+    function randomColor(palette = COLORS) {
+        return palette[Math.floor(Math.random() * palette.length)];
     }
 
-    function burst(x, y, count, speed) {
+    function burst(x, y, count, speed, palette = COLORS) {
         ensureCanvas();
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
@@ -156,7 +185,7 @@
                 gravity: 0.18,
                 drag: 0.96,
                 size: 2 + Math.random() * 3,
-                color: randomColor(),
+                color: randomColor(palette),
                 life: 1,
                 decay: 0.018 + Math.random() * 0.015,
                 shape: 'dot'
@@ -259,11 +288,11 @@
         });
     }
 
-    function floatText(text, anchor, tier) {
+    function floatText(text, anchor, tier, extraClass = '') {
         if (!anchor) return;
         const { x, y } = center(anchor);
         const el = document.createElement('div');
-        el.className = `fx-float fx-float-${tier}`;
+        el.className = `fx-float fx-float-${tier} ${extraClass}`.trim();
         el.textContent = text;
         el.style.left = `${x}px`;
         el.style.top = `${y}px`;
@@ -286,14 +315,14 @@
         countUpId = requestAnimationFrame(tick);
     }
 
-    function banner(name, points, tier) {
+    function banner(titleText, subText, tier, extraClass = '') {
         const el = document.createElement('div');
-        el.className = `fx-banner fx-banner-${tier}`;
+        el.className = `fx-banner fx-banner-${tier} ${extraClass}`.trim();
         const title = document.createElement('strong');
-        title.textContent = `${name}!`;
-        const pts = document.createElement('span');
-        pts.textContent = `+${points}`;
-        el.append(title, pts);
+        title.textContent = titleText;
+        const sub = document.createElement('span');
+        sub.textContent = subText;
+        el.append(title, sub);
 
         if (tier >= 4) {
             document.body.appendChild(el);
@@ -329,10 +358,13 @@
         });
     }
 
-    // === Public API (called from combo.js) ===
+    let lastBankAt = -Infinity;
+
+    // === Public API (combo events from combo.js, game events from script.js) ===
     const api = {
         // { id, name, points, keys, prevScore, score, streak, getScore }
         onBank(hand) {
+            lastBankAt = performance.now();
             const baseTier = TIER_BY_HAND[hand.id] || 1;
             playSound(baseTier);
             vibrate(baseTier);
@@ -358,7 +390,7 @@
             }
 
             if (tier >= 3) {
-                banner(hand.name, hand.points, tier);
+                banner(`${hand.name}!`, `+${hand.points}`, tier);
                 if (board) {
                     const { x, y } = center(board);
                     burst(x, y, Math.round((tier === 3 ? 40 : 70) * heat), tier === 3 ? 7 : 9);
@@ -378,19 +410,132 @@
             playSound('break');
             vibrate('break');
             if (settings.effects) shatterChips();
+        },
+
+        // --- Normal game (only when boardFx is on; off keeps the original effects) ---
+
+        // units: completed row/col/box, each a list of [r, c] in board order.
+        onCorrectInput({ r, c, val, units }) {
+            if (!settings.boardFx) return;
+            // A combo hand banked by this same input already played its sound.
+            const comboSounded = performance.now() - lastBankAt < 80;
+            if (!comboSounded) playSound('pop', val);
+
+            const cell = getCell(r * 9 + c);
+            if (cell) {
+                restartClass(cell, 'fx-correct', 600);
+                const { x, y } = center(cell);
+                burst(x, y, 8, 2.5, BOARD_COLORS);
+            }
+
+            if (!units || units.length === 0) return;
+
+            units.forEach((unit) => {
+                // Wave outward from the cell that completed the line.
+                unit.slice()
+                    .sort((a, b) => (Math.abs(a[0] - r) + Math.abs(a[1] - c)) - (Math.abs(b[0] - r) + Math.abs(b[1] - c)))
+                    .forEach(([ur, uc], i) => {
+                        setTimeout(() => restartClass(getCell(ur * 9 + uc), 'fx-unit-wave', 750), i * 45);
+                    });
+                const mid = getCell(unit[4][0] * 9 + unit[4][1]);
+                if (mid) {
+                    const { x, y } = center(mid);
+                    burst(x, y, 18, 4.5, BOARD_COLORS);
+                }
+            });
+
+            playSound('unit', units.length);
+            vibrate('unit');
+            if (units.length >= 2 && cell) {
+                floatText(units.length === 2 ? '더블 라인!' : '트리플 라인!', cell, 3, 'fx-float-board');
+            }
+        },
+
+        onNumberComplete({ val, btn }) {
+            if (!settings.boardFx) return;
+            playSound('number');
+            vibrate('number');
+            if (btn) {
+                floatText(`${val} 완성!`, btn, 2, 'fx-float-board');
+                const { x, y } = center(btn);
+                burst(x, y, 22, 5, BOARD_COLORS);
+            }
+        },
+
+        onWin() {
+            if (!settings.boardFx) return;
+            playSound('win');
+            vibrate('win');
+            const boardBox = document.querySelector('.board-container');
+            restartClass(boardBox, 'fx-board-glow', 1400);
+            banner('퍼즐 완성!', '축하합니다', 4, 'fx-banner-board');
+            if (boardBox) {
+                const { x, y } = center(boardBox);
+                burst(x, y, 60, 9, BOARD_COLORS.concat(COLORS));
+            }
+            if (!reducedMotion) confetti(170);
+        },
+
+        onMistake() {
+            if (!settings.boardFx) return;
+            playSound('mistake');
+            vibrate('mistake');
         }
     };
 
     // === Settings UI (inside the paytable popup + quick sound button) ===
     function bindSettingsUI() {
         const inputs = {
+            boardFx: document.getElementById('fx-setting-board'),
             effects: document.getElementById('fx-setting-effects'),
             sound: document.getElementById('fx-setting-sound'),
             vibrate: document.getElementById('fx-setting-vibrate')
         };
         const soundBtn = document.getElementById('combo-sound-btn');
+        const headerBtn = document.getElementById('fx-toggle');
+        const modal = document.getElementById('fx-modal');
+        const modalClose = document.getElementById('fx-modal-close');
+        const comboOpenBtn = document.getElementById('combo-open-fx');
+        let returnFocus = null;
+
+        function openModal() {
+            returnFocus = document.activeElement;
+            // Opening from the combo paytable: swap popups.
+            const comboModal = document.getElementById('combo-modal');
+            if (comboModal && !comboModal.hidden) comboModal.hidden = true;
+            modal.hidden = false;
+            modalClose.focus();
+        }
+
+        function closeModal() {
+            modal.hidden = true;
+            if (returnFocus && document.contains(returnFocus) && returnFocus.offsetParent !== null) returnFocus.focus();
+            else if (headerBtn) headerBtn.focus();
+        }
+
+        if (modal) {
+            if (headerBtn) headerBtn.addEventListener('click', openModal);
+            if (comboOpenBtn) comboOpenBtn.addEventListener('click', openModal);
+            modalClose.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+            // Capture before the game's keydown handler so keys don't play moves.
+            window.addEventListener('keydown', (e) => {
+                if (modal.hidden) return;
+                e.stopPropagation();
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    closeModal();
+                }
+            }, true);
+        }
 
         function sync() {
+            if (headerBtn) {
+                headerBtn.classList.toggle('fx-active', !!settings.boardFx);
+                headerBtn.title = settings.boardFx ? '화려한 효과 켜짐 (설정 열기)' : '화려한 효과 꺼짐 (설정 열기)';
+            }
             Object.entries(inputs).forEach(([key, input]) => {
                 if (input) input.checked = !!settings[key];
             });
@@ -432,5 +577,6 @@
     }
 
     bindSettingsUI();
+    window.GameEffects = api;
     window.ComboEffects = api;
 })();
