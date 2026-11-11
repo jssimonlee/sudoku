@@ -91,11 +91,18 @@
                     <div class="combo-score-box">
                         <span class="combo-label">점수</span>
                         <span class="combo-score" id="combo-score">0</span>
+                        <span class="combo-heat" id="combo-heat" hidden>
+                            <i class="fas fa-fire"></i><span id="combo-heat-count">0</span>
+                        </span>
                     </div>
                     <div class="combo-slots" id="combo-slots" aria-label="현재 패"></div>
                     <span class="combo-current" id="combo-current"></span>
                     <button class="combo-help-btn" id="combo-help-btn" type="button" title="족보표 보기">
                         <i class="fas fa-list-ol"></i><span>족보</span>
+                    </button>
+                    <button class="combo-sound-btn" id="combo-sound-btn" type="button" aria-label="소리 켜기/끄기"
+                        aria-pressed="true" title="소리 끄기">
+                        <i class="fas fa-volume-up"></i>
                     </button>
                     <div class="combo-flash" id="combo-flash"></div>
                 </div>
@@ -121,6 +128,25 @@
                         <li>실수하면 <b>확정 전 패는 날아갑니다</b>.</li>
                     </ul>
                     <div class="combo-paytable" id="combo-paytable"></div>
+
+                    <h4 class="fx-settings-title">효과 설정</h4>
+                    <div class="fx-settings">
+                        <label class="fx-setting">
+                            <span><b>게임 효과</b><small>칸 빛남, 파티클, 배너, 흔들림</small></span>
+                            <input type="checkbox" id="fx-setting-effects" checked>
+                            <span class="fx-switch" aria-hidden="true"></span>
+                        </label>
+                        <label class="fx-setting">
+                            <span><b>소리</b><small>족보가 높을수록 화려한 효과음</small></span>
+                            <input type="checkbox" id="fx-setting-sound" checked>
+                            <span class="fx-switch" aria-hidden="true"></span>
+                        </label>
+                        <label class="fx-setting">
+                            <span><b>진동</b><small>큰 족보와 실수 시 (모바일)</small></span>
+                            <input type="checkbox" id="fx-setting-vibrate" checked>
+                            <span class="fx-switch" aria-hidden="true"></span>
+                        </label>
+                    </div>
                 </div>
             </div>
 
@@ -151,6 +177,7 @@
             </div>
         </main>
     </div>
+    <script src="effects.js"></script>
     <script src="combo.js"></script>
     <script src="script.js"></script>
 </body>

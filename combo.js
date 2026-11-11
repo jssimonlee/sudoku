@@ -94,6 +94,7 @@
     let score = 0;
     let hand = [];               // [{ key, val }]
     let lastInput = null;        // snapshot to revert the most recent input on undo/erase
+    let streak = 0;              // hands banked in a row without a mistake ("heat")
     const scoredCells = new Set();
     let counts = Array(10).fill(0);
     let flashTimer = null;
@@ -102,6 +103,8 @@
     const toggleBtn = document.getElementById('combo-toggle');
     const panel = document.getElementById('combo-panel');
     const scoreEl = document.getElementById('combo-score');
+    const heatEl = document.getElementById('combo-heat');
+    const heatCountEl = document.getElementById('combo-heat-count');
     const slotsEl = document.getElementById('combo-slots');
     const currentEl = document.getElementById('combo-current');
     const flashEl = document.getElementById('combo-flash');
@@ -146,11 +149,27 @@
         }, 1500);
     }
 
+    // Forward an event to effects.js when it is loaded.
+    function emitEffect(name, payload) {
+        const fx = window.ComboEffects;
+        if (fx && typeof fx[name] === 'function') fx[name](payload);
+    }
+
     function bankHand() {
         const value = handValue(handValues());
         if (value) {
+            const prevScore = score;
             score += value.points;
+            streak++;
             showFlash(`${value.name} 확정 +${value.points}`, 'good');
+            emitEffect('onBank', {
+                ...value,
+                keys: hand.map((card) => card.key),
+                prevScore,
+                score,
+                streak,
+                getScore: () => score
+            });
         }
         hand = [];
         return value ? value.points : 0;
@@ -187,6 +206,12 @@
         }
 
         scoreEl.textContent = score.toLocaleString();
+
+        const heat = Math.min(streak, 5);
+        panel.dataset.heat = heat;
+        heatEl.hidden = streak < 2;
+        heatCountEl.textContent = streak;
+        heatEl.title = `실수 없이 ${streak}패 연속 확정`;
 
         slotsEl.replaceChildren();
         for (let i = 0; i < HAND_SIZE; i++) {
@@ -298,6 +323,7 @@
 
         reset() {
             score = 0;
+            streak = 0;
             hand = [];
             lastInput = null;
             scoredCells.clear();
@@ -330,7 +356,7 @@
                 return;
             }
 
-            lastInput = { key, score, hand: hand.slice() };
+            lastInput = { key, score, streak, hand: hand.slice() };
             scoredCells.add(key);
 
             const next = handValues().concat(val);
@@ -348,7 +374,9 @@
             if (!enabled) return;
             const lost = handValue(handValues());
             if (lost) showFlash(`실수! ${lost.name} 날아감`, 'bad');
+            emitEffect('onBreak', { hadCards: hand.length > 0 });
             hand = [];
+            streak = 0;
             lastInput = null;
             render();
         },
@@ -362,6 +390,7 @@
                 // Taking back the most recent input restores everything before it.
                 const refunded = score - lastInput.score;
                 score = lastInput.score;
+                streak = lastInput.streak;
                 hand = lastInput.hand;
                 scoredCells.delete(key);
                 lastInput = null;
@@ -377,6 +406,7 @@
     toggleBtn.addEventListener('click', () => {
         enabled = !enabled;
         hand = [];
+        streak = 0;
         lastInput = null;
         saveEnabled();
         render();
