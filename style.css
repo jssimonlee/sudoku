@@ -1715,38 +1715,11 @@ main {
     60% { transform: scale(1.1); }
 }
 
-/* How many of this number are still missing (top-right; the check mark takes over at 0) */
-.fx-rich .num-btn:not(.disabled)[data-left]::after {
-    content: attr(data-left);
-    position: absolute;
-    top: 3px;
-    right: 5px;
-    font-size: 0.62rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--text-secondary);
-    opacity: 0.75;
-}
-
-.fx-rich .num-btn.fx-left-tick:not(.disabled)::after {
-    animation: fxLeftTick 0.35s ease-out;
-}
-
-@keyframes fxLeftTick {
-    0% { transform: translateY(-5px) scale(1.7); color: var(--accent-color); opacity: 1; }
-    100% { transform: none; }
-}
-
 /* One left: the button glows softly */
 .fx-rich .num-btn:not(.disabled)[data-left="1"] {
     border-color: rgba(16, 185, 129, 0.7);
     box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45);
     animation: fxLastOne 1.6s ease-in-out infinite;
-}
-
-.fx-rich .num-btn:not(.disabled)[data-left="1"]::after {
-    color: var(--success-color);
-    opacity: 1;
 }
 
 .fx-rich .num-btn.fx-press:not(.disabled)[data-left="1"] {
@@ -1759,8 +1732,7 @@ main {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .fx-rich .num-btn:not(.disabled)[data-left="1"],
-    .fx-rich .num-btn.fx-left-tick:not(.disabled)::after {
+    .fx-rich .num-btn:not(.disabled)[data-left="1"] {
         animation: none;
     }
 }

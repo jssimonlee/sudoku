@@ -514,8 +514,6 @@
                 burst(x, y, 6, 2, BOARD_COLORS);
             }
             vibrate('tap');
-            // The count left on the numpad button ticks down.
-            restartClass(numButton(val), 'fx-left-tick', 350);
 
             if (!units || units.length === 0) return;
 
