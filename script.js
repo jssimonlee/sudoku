@@ -198,6 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         combo.reset();
+        emitFx('onNewGame');
         if (typeof combo.setState === 'function') combo.setState(saved.combo);
         updateNumpadState({ silent: true });
         return true;
@@ -517,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         generateSudoku();
         renderBoard();
         combo.reset();
+        emitFx('onNewGame');
         updateNumpadState();
         saveGame();
     }

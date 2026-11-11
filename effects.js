@@ -102,10 +102,22 @@
 
         // --- Normal game ---
         // Each number has its own note (1 = C5 … 9 = D6), so input order plays a melody.
-        pop(val) {
+        // A longer flow (level 0-3) keeps the note but adds brighter layers on top.
+        pop(val, level = 0) {
             const f = SCALE[val] || N.C5;
             tone(f, 0, 0.14, { type: 'sine', gain: 0.35 });
-            tone(f * 2, 0, 0.06, { type: 'triangle', gain: 0.08 });
+            tone(f * 2, 0, 0.06, { type: 'triangle', gain: 0.08 + level * 0.04 });
+            if (level >= 1) tone(f * 1.5, 0.03, 0.1, { type: 'sine', gain: 0.1 + level * 0.03 });
+            if (level >= 2) tone(f * 2, 0.06, 0.12, { type: 'sine', gain: 0.12 });
+            if (level >= 3) tone(f * 3, 0.09, 0.14, { type: 'sine', gain: 0.08 });
+        },
+        // Flow milestone (5, 10, 20, ... in a row): a quick rising sparkle.
+        flow(level) {
+            const notes = [N.E6, N.G6, N.C7].slice(0, Math.max(2, level));
+            notes.forEach((f, i) => tone(f, 0.08 + i * 0.05, 0.16, { type: 'triangle', gain: 0.22 }));
+        },
+        flowBreak() {
+            tone(520, 0, 0.16, { type: 'sine', gain: 0.2, slideTo: 260 });
         },
         unit(count) {
             const notes = count >= 2 ? [N.C6, N.E6, N.G6, N.C7] : [N.G5, N.C6, N.E6];
@@ -138,10 +150,10 @@
 
     const SCALE = { 1: 523.25, 2: 587.33, 3: 659.25, 4: 698.46, 5: 783.99, 6: 880, 7: 987.77, 8: 1046.5, 9: 1174.66 };
 
-    function playSound(name, arg) {
+    function playSound(name, arg, arg2) {
         if (!settings.sound) return;
         try {
-            SOUNDS[name](arg);
+            SOUNDS[name](arg, arg2);
         } catch (e) { /* audio unavailable */ }
     }
 
@@ -300,8 +312,8 @@
     function clearBoardWaves() {
         waveTimers.forEach(clearTimeout);
         waveTimers = [];
-        document.querySelectorAll('.cell.fx-unit-wave, .cell.fx-correct').forEach((el) => {
-            el.classList.remove('fx-unit-wave', 'fx-correct');
+        document.querySelectorAll('.cell.fx-unit-wave, .cell.fx-correct, .cell.fx-unit-hop').forEach((el) => {
+            el.classList.remove('fx-unit-wave', 'fx-correct', 'fx-unit-hop');
         });
     }
     document.addEventListener('pointerdown', clearBoardWaves, true);
@@ -400,6 +412,76 @@
 
     let lastBankAt = -Infinity;
 
+    // === Flow: correct inputs in a row without a mistake (normal game) ===
+    // Purely cosmetic: it scores nothing and only makes the feedback grow.
+    const FLOW_START = 5;                 // the badge appears from here
+    const FLOW_LEVELS = [5, 10, 20];      // level 1 / 2 / 3 thresholds
+    const FLOW_PARTICLES = [6, 10, 14, 20];
+    const FLOW_SPEED = [2, 2.6, 3.2, 4];
+    const FLOW_COLORS = ['#fbbf24', '#f59e0b', '#f472b6'];
+    let flow = 0;
+    let flowBadge = null;
+
+    function flowLevel(count = flow) {
+        return FLOW_LEVELS.filter((min) => count >= min).length;
+    }
+
+    function isFlowMilestone(count) {
+        return count === FLOW_START || (count >= 10 && count % 10 === 0);
+    }
+
+    function renderFlow() {
+        const board = document.querySelector('.board-container');
+        if (!board) return;
+        const shown = settings.boardFx && flow >= FLOW_START;
+        board.dataset.fxFlow = shown ? flowLevel() : 0;
+        if (!shown) {
+            if (flowBadge) flowBadge.hidden = true;
+            return;
+        }
+        if (!flowBadge) {
+            flowBadge = document.createElement('div');
+            flowBadge.className = 'fx-flow-badge';
+            flowBadge.setAttribute('aria-hidden', 'true');
+            const icon = document.createElement('i');
+            icon.className = 'fas fa-bolt';
+            flowBadge.append(icon, document.createElement('span'));
+        }
+        if (flowBadge.parentNode !== board) board.appendChild(flowBadge);
+        flowBadge.hidden = false;
+        flowBadge.dataset.level = flowLevel();
+        flowBadge.lastChild.textContent = flow;
+    }
+
+    function resetFlow() {
+        flow = 0;
+        renderFlow();
+    }
+
+    // === Completed row / column / box: each shape gets its own flash ===
+    function unitShape(unit) {
+        if (unit.every(([ur]) => ur === unit[0][0])) return 'row';
+        if (unit.every(([, uc]) => uc === unit[0][1])) return 'col';
+        return 'box';
+    }
+
+    // A bar of light over a line, or a square that pops over a box.
+    function unitBeam(unit) {
+        const first = getCell(unit[0][0] * 9 + unit[0][1]);
+        const last = getCell(unit[8][0] * 9 + unit[8][1]);
+        if (!first || !last) return;
+        const a = first.getBoundingClientRect();
+        const b = last.getBoundingClientRect();
+        const el = document.createElement('div');
+        el.className = `fx-beam fx-beam-${unitShape(unit)}`;
+        el.style.left = `${a.left}px`;
+        el.style.top = `${a.top}px`;
+        el.style.width = `${b.right - a.left}px`;
+        el.style.height = `${b.bottom - a.top}px`;
+        document.body.appendChild(el);
+        setTimeout(() => el.remove(), 650);
+    }
+
     // === Public API (combo events from combo.js, game events from script.js) ===
     const api = {
         // { id, name, points, keys, prevScore, score, streak, getScore }
@@ -457,38 +539,71 @@
         // units: completed row/col/box, each a list of [r, c] in board order.
         onCorrectInput({ r, c, val, units }) {
             if (!settings.boardFx) return;
+            // Flow: the longer the run of correct inputs, the bigger this feedback gets.
+            flow++;
+            const level = flowLevel();
+            renderFlow();
+
             // A combo hand banked by this same input already played its sound.
             const comboSounded = performance.now() - lastBankAt < 80;
-            if (!comboSounded) playSound('pop', val);
+            if (!comboSounded) playSound('pop', val, level);
 
             const cell = getCell(r * 9 + c);
             if (cell) {
+                cell.dataset.fxFlow = level;
                 restartClass(cell, 'fx-correct', CORRECT_MS);
                 const { x, y } = center(cell);
-                burst(x, y, 6, 2, BOARD_COLORS);
+                burst(x, y, FLOW_PARTICLES[level], FLOW_SPEED[level],
+                    level >= 2 ? BOARD_COLORS.concat(FLOW_COLORS) : BOARD_COLORS);
+            }
+
+            if (isFlowMilestone(flow)) {
+                playSound('flow', level);
+                if (cell) floatText(`${flow}연속!`, cell, Math.min(4, level + 1), 'fx-float-flow');
+                restartClass(flowBadge, 'fx-flow-pop', 500);
+                restartClass(document.querySelector('.board-container'), 'fx-flow-pulse', 700);
             }
 
             if (!units || units.length === 0) return;
 
             units.forEach((unit) => {
-                // A light sweep outward from the cell that completed the line (~0.5s in total).
+                // A light sweep outward from the cell that completed the line (~0.5s in total),
+                // with every number in it hopping in the same order.
                 unit.slice()
                     .sort((a, b) => (Math.abs(a[0] - r) + Math.abs(a[1] - c)) - (Math.abs(b[0] - r) + Math.abs(b[1] - c)))
                     .forEach(([ur, uc], i) => {
-                        waveTimers.push(setTimeout(() => restartClass(getCell(ur * 9 + uc), 'fx-unit-wave', WAVE_MS), i * WAVE_STEP_MS));
+                        const unitCell = getCell(ur * 9 + uc);
+                        waveTimers.push(setTimeout(() => restartClass(unitCell, 'fx-unit-wave', WAVE_MS), i * WAVE_STEP_MS));
+                        if (unitCell && !reducedMotion) {
+                            unitCell.style.setProperty('--fx-i', i);
+                            restartClass(unitCell, 'fx-unit-hop', 420 + i * WAVE_STEP_MS);
+                        }
                     });
+                unitBeam(unit);
                 const mid = getCell(unit[4][0] * 9 + unit[4][1]);
                 if (mid) {
                     const { x, y } = center(mid);
-                    burst(x, y, 10, 3.5, BOARD_COLORS);
+                    burst(x, y, unitShape(unit) === 'box' ? 18 : 12, 3.5, BOARD_COLORS);
                 }
             });
 
             playSound('unit', units.length);
             vibrate('unit');
             if (units.length >= 2 && cell) {
-                floatText(units.length === 2 ? '더블 라인!' : '트리플 라인!', cell, 3, 'fx-float-board');
+                floatText(units.length === 2 ? '더블 라인!' : '트리플 라인!', cell, units.length === 2 ? 3 : 4, 'fx-float-board');
+                shake(units.length === 2 ? 'small' : 'big');
+                const board = document.querySelector('.board-container');
+                if (units.length >= 3 && board) {
+                    const { x, y } = center(board);
+                    burst(x, y, 50, 7, BOARD_COLORS.concat(FLOW_COLORS));
+                    restartClass(board, 'fx-flow-pulse', 700);
+                }
             }
+        },
+
+        // A new or restored game starts with no flow.
+        onNewGame() {
+            resetFlow();
         },
 
         onNumberComplete({ val, btn }) {
@@ -519,6 +634,15 @@
         // A life was lost. bar: the health bar that just emptied, livesLeft: lives remaining.
         onMistake({ r, c, bar, livesLeft } = {}) {
             if (!settings.boardFx) return;
+            // The flow breaks: the badge drops off.
+            if (flow >= FLOW_START && flowBadge) {
+                playSound('flowBreak');
+                const ghost = flowBadge.cloneNode(true);
+                ghost.classList.add('fx-flow-break');
+                flowBadge.parentNode.appendChild(ghost);
+                setTimeout(() => ghost.remove(), 600);
+            }
+            resetFlow();
             const final = livesLeft === 0;
             playSound(final ? 'lifeOut' : 'lifeLost', livesLeft);
             vibrate(final ? 'lifeOut' : 'mistake');
@@ -616,6 +740,7 @@
             if (!input) return;
             input.addEventListener('change', () => {
                 settings[key] = input.checked;
+                renderFlow();
                 saveSettings();
                 sync();
                 if (key === 'sound' && settings.sound) playSound(1);
