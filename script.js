@@ -159,18 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function getCellCandidates(r, c) {
-        if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return [];
-
-        const candidates = [];
-        for (let val = 1; val <= 9; val++) {
-            if (isSafeBoard(board, r, c, val)) {
-                candidates.push(val);
-            }
-        }
-        return candidates;
-    }
-
     function getUnitMissingValue(cells) {
         let emptyCount = 0;
         const used = new Set();
@@ -239,11 +227,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function getAutoFillNumber(r, c) {
         if (board[r][c] !== 0 || initialBoard[r][c] !== 0) return null;
 
+        // Only fill the last empty cell of a row / column / box (8 of 9 filled),
+        // or any cell once a single number is left on the whole board.
+        // A cell whose candidates narrow to one is NOT filled: that would be a hint.
         const unitCompletionVal = getLastUnitCompletionNumber(r, c);
         if (unitCompletionVal !== null) return unitCompletionVal;
-
-        const candidates = getCellCandidates(r, c);
-        if (candidates.length === 1) return candidates[0];
 
         return getOnlyRemainingNumber();
     }
