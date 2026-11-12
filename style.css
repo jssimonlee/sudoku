@@ -513,10 +513,16 @@ main {
 
 
 .num-btn.disabled {
-    pointer-events: none;
+    cursor: default;
     color: var(--text-secondary);
     background: rgba(128, 128, 128, 0.08);
     border-color: var(--surface-border);
+}
+
+/* Still tappable (it flashes the finished number), but it must not look playable. */
+.num-btn.disabled:hover,
+.num-btn.disabled:active {
+    transform: none;
 }
 
 /* Completion stays visible independently of the selected-number highlight. */
@@ -1734,6 +1740,74 @@ main {
 @media (prefers-reduced-motion: reduce) {
     .fx-rich .num-btn:not(.disabled)[data-left="1"] {
         animation: none;
+    }
+}
+
+/* === Finished number pressed again: its nine cells blink green === */
+/* !important: cells carry an inline pop-in animation that would otherwise win. */
+.cell.fx-done-flash {
+    position: relative;
+    z-index: 1;
+    animation: fxDoneFlash 0.6s ease-out both !important;
+}
+
+@keyframes fxDoneFlash {
+    0% { transform: scale(1); }
+    18% {
+        transform: scale(1.14);
+        background-color: rgba(16, 185, 129, 0.5);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.9), 0 0 14px rgba(16, 185, 129, 0.55);
+        color: #059669;
+    }
+    45% {
+        transform: scale(0.97);
+        background-color: rgba(16, 185, 129, 0.32);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.5);
+    }
+    100% { transform: none; }
+}
+
+/* The button answers too: a green edge and its check mark pops. */
+.num-btn.disabled.fx-done-tap {
+    animation: fxDoneTap 0.4s ease-out;
+}
+
+.num-btn.disabled.fx-done-tap::after {
+    animation: fxDoneCheck 0.4s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+@keyframes fxDoneTap {
+    0% { transform: scale(0.92); }
+    35% {
+        transform: scale(1.04);
+        border-color: rgba(16, 185, 129, 0.9);
+        color: var(--success-color);
+        box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+    }
+    100% { transform: none; }
+}
+
+@keyframes fxDoneCheck {
+    0% { transform: scale(1); }
+    40% { transform: scale(2.1); color: var(--success-color); }
+    100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cell.fx-done-flash {
+        animation-name: fxDoneFlashStill !important;
+    }
+
+    .num-btn.disabled.fx-done-tap,
+    .num-btn.disabled.fx-done-tap::after {
+        animation: none;
+    }
+}
+
+@keyframes fxDoneFlashStill {
+    0%, 60% {
+        background-color: rgba(16, 185, 129, 0.4);
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.8);
     }
 }
 

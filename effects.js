@@ -107,6 +107,17 @@
             tone(f, 0, 0.14, { type: 'sine', gain: 0.35 });
             tone(f * 2, 0, 0.06, { type: 'triangle', gain: 0.08 });
         },
+        // A finished number pressed again: the number's own note answered an octave up, "already done".
+        // A glassy "ti-ring": the number's note jumps a fifth and an octave, then shimmers.
+        done(val) {
+            const f = (SCALE[val] || N.C5) * 2;
+            tone(f, 0, 0.09, { type: 'sine', gain: 0.24 });
+            tone(f * 1.5, 0.055, 0.1, { type: 'sine', gain: 0.2 });
+            tone(f * 2, 0.11, 0.42, { type: 'sine', gain: 0.2 });
+            // Two slightly detuned partials beat against each other: the bell-like shimmer.
+            tone(f * 2 * 1.006, 0.11, 0.42, { type: 'sine', gain: 0.12 });
+            tone(f * 4, 0.11, 0.18, { type: 'triangle', gain: 0.05 });
+        },
         unit(count) {
             const notes = count >= 2 ? [N.C6, N.E6, N.G6, N.C7] : [N.G5, N.C6, N.E6];
             notes.forEach((f, i) => tone(f, 0.05 + i * 0.06, 0.22, { type: 'triangle', gain: 0.32 }));
@@ -295,14 +306,16 @@
     const STAMP_MS = 300;
     const WAVE_MS = 380;
     const WAVE_STEP_MS = 20;
+    const DONE_MS = 620;
+    const DONE_STEP_MS = 22;
     let waveTimers = [];
 
     // The next move (tap or key) ends any sweep still running, so effects never pile up.
     function clearBoardWaves() {
         waveTimers.forEach(clearTimeout);
         waveTimers = [];
-        document.querySelectorAll('.cell.fx-unit-wave, .cell.fx-correct, .cell.fx-unit-hop, .cell.fx-stamp').forEach((el) => {
-            el.classList.remove('fx-unit-wave', 'fx-correct', 'fx-unit-hop', 'fx-stamp');
+        document.querySelectorAll('.cell.fx-unit-wave, .cell.fx-correct, .cell.fx-unit-hop, .cell.fx-stamp, .cell.fx-done-flash').forEach((el) => {
+            el.classList.remove('fx-unit-wave', 'fx-correct', 'fx-unit-hop', 'fx-stamp', 'fx-done-flash');
         });
     }
 
@@ -497,6 +510,19 @@
         },
 
         // --- Normal game (only when boardFx is on; off keeps the original effects) ---
+
+        // A finished number was pressed: its nine cells blink green in a quick ripple and the
+        // button's check mark pops. Shown even with board effects off, since it is information.
+        onCompletedTap({ val, btn, cells }) {
+            playSound('done', val);
+            vibrate('tap');
+            restartClass(btn, 'fx-done-tap', 420);
+            cells.forEach(([r, c], i) => {
+                const cell = getCell(r * 9 + c);
+                if (!cell) return;
+                waveTimers.push(setTimeout(() => restartClass(cell, 'fx-done-flash', DONE_MS), i * DONE_STEP_MS));
+            });
+        },
 
         // units: completed row/col/box, each a list of [r, c] in board order.
         onCorrectInput({ r, c, val, units }) {

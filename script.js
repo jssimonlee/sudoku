@@ -268,9 +268,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     numButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            if (btn.classList.contains('disabled')) return;
             if (!canPlay()) return;
             const val = parseInt(btn.getAttribute('data-val'));
+            if (flashIfCompleted(val)) return;
             setSelectedNumber(val); // Mark this number as active
             if (isNotesMode) {
                 inputNote(val);
@@ -279,6 +279,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // A number that is already placed nine times can't be played: instead of doing nothing,
+    // its nine cells flash so the player sees at once that it is finished.
+    function flashIfCompleted(val) {
+        const btn = document.querySelector(`.num-btn[data-val="${val}"]`);
+        if (!btn || !btn.classList.contains('disabled')) return false;
+        const cells = [];
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                if (board[r][c] === val) cells.push([r, c]);
+            }
+        }
+        emitFx('onCompletedTap', { val, btn, cells });
+        return true;
+    }
 
     // Helper: set the active selected number and highlight the numpad button
     function setSelectedNumber(val, source = 'user') {
@@ -461,6 +476,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (e.key >= '1' && e.key <= '9') {
             const val = parseInt(e.key);
+            if (flashIfCompleted(val)) return;
             setSelectedNumber(val); // highlight numpad
             if (isNotesMode) {
                 inputNote(val);
