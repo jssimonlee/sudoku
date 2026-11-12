@@ -570,6 +570,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 cell.addEventListener('click', () => {
                     selectCell(r, c);
+                    // Tapping a number on the board whose nine are all placed flashes them too.
+                    if (canPlay() && board[r][c] !== 0) flashIfCompleted(board[r][c]);
                     // Clicking a cell with a number selects that number
                     const val = board[r][c];
                     if (val !== 0) {

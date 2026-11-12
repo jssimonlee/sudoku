@@ -306,8 +306,8 @@
     const STAMP_MS = 300;
     const WAVE_MS = 380;
     const WAVE_STEP_MS = 20;
-    const DONE_MS = 620;
-    const DONE_STEP_MS = 22;
+    const DONE_MS = 1150;
+    const DONE_STEP_MS = 30;
     let waveTimers = [];
 
     // The next move (tap or key) ends any sweep still running, so effects never pile up.
