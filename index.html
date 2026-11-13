@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome for Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261112c">
+    <link rel="stylesheet" href="style.css?v=20261113a">
 </head>
 
 <body>
@@ -22,13 +22,18 @@
                 <h1>Sudoku</h1>
                 <div class="header-actions">
                     <!-- Effect settings (richer game effects ON/OFF, sound, vibration) -->
-                    <button id="fx-toggle" class="icon-btn" aria-label="효과 설정" title="효과 설정">
-                        <i class="fas fa-magic"></i>
+                    <button id="fx-toggle" class="icon-btn toggle-pill" aria-label="화려한 효과 설정" aria-pressed="false"
+                        title="화려한 효과: 반짝임·물결·컨페티 (눌러서 설정)">
+                        <i class="fas fa-wand-magic-sparkles"></i>
+                        <span class="toggle-name">효과</span>
+                        <span class="toggle-state" aria-hidden="true"></span>
                     </button>
                     <!-- Combo mode (order-based scoring mini game) -->
-                    <button id="combo-toggle" class="icon-btn" aria-label="Toggle Combo Mode" aria-pressed="false"
+                    <button id="combo-toggle" class="icon-btn toggle-pill" aria-label="콤보 모드" aria-pressed="false"
                         title="콤보 모드: 입력 순서로 족보를 만들어 점수 얻기">
                         <i class="fas fa-dice"></i>
+                        <span class="toggle-name">콤보</span>
+                        <span class="toggle-state" aria-hidden="true"></span>
                     </button>
                     <!-- TOP 10 leaderboard (shown only when a server is configured) -->
                     <button id="lb-toggle" class="icon-btn" aria-label="TOP 10 순위표" title="TOP 10 순위표" hidden>
@@ -244,12 +249,12 @@
             </div>
         </main>
     </div>
-    <script src="stats.js?v=20261112c"></script>
-    <script src="effects.js?v=20261112c"></script>
-    <script src="combo.js?v=20261112c"></script>
-    <script src="leaderboard-config.js?v=20261112c"></script>
-    <script src="leaderboard.js?v=20261112c"></script>
-    <script src="script.js?v=20261112c"></script>
+    <script src="stats.js?v=20261113a"></script>
+    <script src="effects.js?v=20261113a"></script>
+    <script src="combo.js?v=20261113a"></script>
+    <script src="leaderboard-config.js?v=20261113a"></script>
+    <script src="leaderboard.js?v=20261113a"></script>
+    <script src="script.js?v=20261113a"></script>
 </body>
 
 </html>

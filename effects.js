@@ -685,6 +685,7 @@
             document.body.classList.toggle('fx-rich', !!settings.boardFx);
             if (headerBtn) {
                 headerBtn.classList.toggle('fx-active', !!settings.boardFx);
+                headerBtn.setAttribute('aria-pressed', String(!!settings.boardFx));
                 headerBtn.title = settings.boardFx ? '화려한 효과 켜짐 (설정 열기)' : '화려한 효과 꺼짐 (설정 열기)';
             }
             Object.entries(inputs).forEach(([key, input]) => {
