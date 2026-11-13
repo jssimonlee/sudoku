@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome for Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261113a">
+    <link rel="stylesheet" href="style.css?v=20261113b">
 </head>
 
 <body>
@@ -39,10 +39,6 @@
                     <button id="lb-toggle" class="icon-btn" aria-label="TOP 10 순위표" title="TOP 10 순위표" hidden>
                         <i class="fas fa-trophy"></i>
                     </button>
-                    <!-- Pause button moved here as small icon -->
-                    <button id="btn-pause" class="icon-btn" aria-label="Pause Game" title="게임 일시정지 / 재개">
-                        <i class="fas fa-pause" id="pause-icon"></i>
-                    </button>
                 </div>
             </div>
 
@@ -56,7 +52,14 @@
                         <option value="daily">📅 Daily</option>
                     </select>
                 </div>
-                <div class="timer" id="timer">00:00</div>
+                <!-- Timer and pause in one pill: tap it to pause / resume -->
+                <div class="timer-slot">
+                    <button id="btn-pause" class="timer-pill" type="button" aria-label="게임 일시정지 / 재개"
+                        title="게임 일시정지 / 재개">
+                        <span class="timer-pill-icon"><i class="fas fa-pause" id="pause-icon"></i></span>
+                        <span class="timer" id="timer">00:00</span>
+                    </button>
+                </div>
                 <div class="mistakes-container" title="남은 기회">
                     <div class="health-bars" id="health-bars">
                         <div class="health-bar active"></div>
@@ -87,9 +90,13 @@
 
                 <!-- Pause Overlay -->
                 <div class="overlay pause-overlay" id="pause-overlay">
-                    <div class="pause-play-btn" id="pause-resume-btn" aria-label="Resume Game">
-                        <i class="fas fa-play"></i>
+                    <div class="pause-play-btn" id="pause-resume-btn" role="button" aria-label="게임 계속하기">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="M8.5 6v12l10-6z" fill="currentColor" stroke="currentColor" stroke-width="3"
+                                stroke-linejoin="round" />
+                        </svg>
                     </div>
+                    <p class="pause-label">일시정지 · 눌러서 계속하기</p>
                 </div>
             </div>
 
@@ -249,12 +256,12 @@
             </div>
         </main>
     </div>
-    <script src="stats.js?v=20261113a"></script>
-    <script src="effects.js?v=20261113a"></script>
-    <script src="combo.js?v=20261113a"></script>
-    <script src="leaderboard-config.js?v=20261113a"></script>
-    <script src="leaderboard.js?v=20261113a"></script>
-    <script src="script.js?v=20261113a"></script>
+    <script src="stats.js?v=20261113b"></script>
+    <script src="effects.js?v=20261113b"></script>
+    <script src="combo.js?v=20261113b"></script>
+    <script src="leaderboard-config.js?v=20261113b"></script>
+    <script src="leaderboard.js?v=20261113b"></script>
+    <script src="script.js?v=20261113b"></script>
 </body>
 
 </html>
