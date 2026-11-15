@@ -3102,3 +3102,18 @@ main {
         font-size: 0.55rem;
     }
 }
+
+/* === Phones: bigger board numbers to fill the wider cells ===
+   line-height 1 keeps the rows from growing, so the cells stay square. */
+@media (max-width: 480px) {
+    .cell {
+        font-size: 2.1rem;
+        line-height: 1;
+    }
+}
+
+@media (max-width: 340px) {
+    .cell {
+        font-size: 1.8rem;
+    }
+}
