@@ -3069,3 +3069,36 @@ main {
         gap: 6px;
     }
 }
+
+/* === Phones: the nine numbers sit in one row, so the buttons below stay on screen === */
+@media (max-width: 480px) {
+    .numpad {
+        grid-template-columns: repeat(9, 1fr);
+        gap: 4px;
+    }
+
+    .numpad .num-btn:nth-child(6) {
+        grid-column: auto;
+    }
+
+    /* Narrow but tall: still an easy target for a thumb */
+    .num-btn {
+        aspect-ratio: 1 / 1.5;
+        font-size: 1.55rem;
+        border-radius: 9px;
+    }
+
+    .num-btn.disabled::after {
+        top: 2px;
+        right: 3px;
+        font-size: 0.6rem;
+    }
+
+    .combo-on .num-btn[data-combo-points]::before {
+        top: 3px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 0.55rem;
+    }
+}
