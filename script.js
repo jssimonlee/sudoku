@@ -134,6 +134,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return Boolean(stats && dailyDate && dailyDate === stats.today());
     }
 
+    // 'medium' | 'hard': the level of the daily puzzle being played (it alternates by date).
+    function dailyLevel() {
+        return stats && dailyDate && typeof stats.daily.level === 'function' ? stats.daily.level(dailyDate) : 'medium';
+    }
+
     function isPlayableDailyDate(date) {
         return Boolean(stats) && typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
             && !Number.isNaN(Date.parse(date)) && date <= stats.today();
@@ -975,7 +980,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (dailyDate) {
                 const [, month, day] = dailyDate.split('-');
-                overlayKicker.textContent = `${isTodayDaily() ? '오늘의 퍼즐' : '지난 Daily 퍼즐'} · ${Number(month)}월 ${Number(day)}일`;
+                overlayKicker.textContent = `${isTodayDaily() ? '오늘의 퍼즐' : '지난 Daily 퍼즐'} · ${Number(month)}월 ${Number(day)}일 · ${DIFFICULTY_LABEL[dailyLevel()]}`;
             } else {
                 overlayKicker.textContent = "퍼즐 완성";
             }
@@ -991,6 +996,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Record for the TOP 10 check (leaderboard.js); captured now, before anything resets.
             // The daily puzzle has its own board; a replay of it is never sent.
+            // (The server files every daily record under "medium", whatever that day's level is.)
             const record = dailyDate
                 ? { mode: DAILY, difficulty: 'medium', date: dailyDate, time: secondsElapsed, mistakes, score: null }
                 : { mode: comboOn ? 'combo' : 'normal', difficulty: difficultySelect.value, time: secondsElapsed, mistakes, score };
@@ -1021,7 +1027,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let result = null;
         let streak = 0;
         if (stats && !dailyPractice) {
-            const key = dailyDate ? DAILY : `${comboOn ? 'combo' : 'normal'}-${difficultySelect.value}`;
+            // Medium days and Hard days keep separate personal bests.
+            const dailyKey = dailyLevel() === 'hard' ? `${DAILY}-hard` : DAILY;
+            const key = dailyDate ? dailyKey : `${comboOn ? 'combo' : 'normal'}-${difficultySelect.value}`;
             // The daily puzzle keeps time only; combo score there is just for fun.
             result = stats.recordWin(key, { time: secondsElapsed, score: dailyDate ? null : score });
             if (isTodayDaily()) streak = stats.daily.markCleared(secondsElapsed);
@@ -1046,7 +1054,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (bestHand) addRow('최고 족보', bestHand.name, `${bestHand.points}점`);
         }
         if (result) {
-            const where = dailyDate ? 'Daily 퍼즐' : `${comboOn ? '콤보 ' : ''}${DIFFICULTY_LABEL[difficultySelect.value] || ''}`;
+            const where = dailyDate ? `Daily ${DIFFICULTY_LABEL[dailyLevel()]}` : `${comboOn ? '콤보 ' : ''}${DIFFICULTY_LABEL[difficultySelect.value] || ''}`;
             addRow('클리어', `${result.wins}번째`, where);
         }
         if (streak > 0) addRow('연속 출석', `${streak}일`, streak > 1 ? '🔥 이어가는 중' : '오늘부터 시작');
@@ -1142,6 +1150,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function getDifficultySettings() {
+        // The daily puzzle is Medium or Hard depending on its date.
+        if (dailyDate) return DIFFICULTY_SETTINGS[dailyLevel()] || DIFFICULTY_SETTINGS.medium;
         return DIFFICULTY_SETTINGS[difficultySelect.value] || DIFFICULTY_SETTINGS.medium;
     }
 

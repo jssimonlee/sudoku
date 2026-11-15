@@ -2965,3 +2965,36 @@ main {
 .timer-slot {
     flex: 0 0 auto;
 }
+
+/* Hard days carry a small red corner mark (the other days are Medium) */
+.daily-cal-day {
+    position: relative;
+}
+
+.daily-cal-day.is-hard::before,
+.daily-cal-swatch.is-hard::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+}
+
+.daily-cal-day.is-done.is-hard::before {
+    background: #fff;
+    box-shadow: 0 0 0 1.5px #ef4444;
+}
+
+.daily-cal-swatch.is-hard {
+    position: relative;
+}
+
+.daily-cal-swatch.is-hard::before {
+    top: 1px;
+    right: 1px;
+    width: 5px;
+    height: 5px;
+}

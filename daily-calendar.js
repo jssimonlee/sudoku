@@ -75,7 +75,9 @@
             cell.append(num, note);
 
             const isToday = key === todayKey;
-            let label = `${shown.m + 1}월 ${d}일`;
+            const hard = stats.daily.level(key) === 'hard';
+            if (hard) cell.classList.add('is-hard');
+            let label = `${shown.m + 1}월 ${d}일 ${hard ? 'Hard' : 'Medium'}`;
             if (key > todayKey) {
                 cell.disabled = true;
                 cell.classList.add('is-future');

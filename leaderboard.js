@@ -89,7 +89,10 @@
     function slotLabel(kind, slot) {
         if (kind !== DAILY) return DIFF_LABEL[slot];
         const [, month, day] = slot.split('-');
-        return `${Number(month)}/${Number(day)}`;
+        // The daily puzzle alternates Medium / Hard by date (stats.js).
+        const stats = window.PlayerStats;
+        const level = stats && typeof stats.daily.level === 'function' ? ` ${DIFF_LABEL[stats.daily.level(slot)]}` : '';
+        return `${Number(month)}/${Number(day)}${level}`;
     }
 
     // Negative when a ranks above b. A new record has no createdAt yet, so it loses ties.

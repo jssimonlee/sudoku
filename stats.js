@@ -45,6 +45,16 @@
         };
     }
 
+    // From this date on the daily puzzle alternates day by day: Hard on the first day, then
+    // Medium, Hard, ... Every earlier date stays Medium, so puzzles already played don't change.
+    const ALTERNATE_FROM = '2026-11-17';
+
+    function dailyLevel(date) {
+        if (typeof date !== 'string' || date < ALTERNATE_FROM) return 'medium';
+        const days = Math.round((Date.parse(date) - Date.parse(ALTERNATE_FROM)) / DAY_MS);
+        return days % 2 === 0 ? 'hard' : 'medium';
+    }
+
     const isDate = (text) => typeof text === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(text);
 
     // Every daily puzzle cleared in this browser: { 'YYYY-MM-DD': seconds } (0 = time not known).
@@ -75,7 +85,7 @@
         // today(-1) is yesterday, and so on
         today: (offsetDays = 0) => dateKey(offsetDays),
 
-        // key: 'normal-<difficulty>' | 'combo-<difficulty>' | 'daily'
+        // key: 'normal-<difficulty>' | 'combo-<difficulty>' | 'daily' (Medium days) | 'daily-hard'
         // Returns the new totals plus what the bests were before this win.
         recordWin(key, { time, score = null }) {
             const all = read(STATS_KEY);
@@ -117,6 +127,8 @@
 
             // Calendar: which dates were cleared here, and a late clear of an earlier date
             // (it is logged but never counts for the streak).
+            // 'medium' | 'hard' for that date's puzzle
+            level: dailyLevel,
             log: dailyLog,
             isCleared: (date) => date in dailyLog(),
             logClear: logDailyClear
