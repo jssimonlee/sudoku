@@ -3117,3 +3117,42 @@ main {
         font-size: 1.8rem;
     }
 }
+
+/* === Phones: fill the screen height ===
+   The page used to sit in the middle with empty bands above and below. Now the blocks
+   (title + timer bar, board, numbers, action buttons) are spread evenly over the visible
+   height, and the buttons grow a little on tall screens. On short screens nothing changes:
+   the minimum gaps apply and the page scrolls if it has to. */
+@media (max-width: 480px) {
+    .app-container {
+        min-height: 100vh;
+        min-height: 100dvh;
+        justify-content: space-evenly;
+        gap: 12px;
+        padding: 12px 6px;
+    }
+
+    /* The board, the combo panel and the controls become direct items of the page column,
+       so the free space is shared equally between them. */
+    main {
+        display: contents;
+    }
+
+    /* Numbers and action buttons stay together as one group, a little closer to each other. */
+    .controls-panel {
+        gap: clamp(12px, 2.4dvh, 22px);
+    }
+
+    .num-btn {
+        aspect-ratio: auto;
+        height: clamp(52px, 8.6dvh, 78px);
+    }
+
+    .action-btn {
+        padding: clamp(10px, 1.9dvh, 18px) 0;
+    }
+
+    .stats-bar {
+        padding-block: clamp(10px, 1.6dvh, 15px);
+    }
+}
