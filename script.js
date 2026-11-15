@@ -130,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Today's daily puzzle counts for the leaderboard and the streak; an earlier date picked in
     // the calendar (or one finished after midnight) is only marked as cleared.
+    // Earlier dates stay open for a limited number of days (stats.js).
     function isTodayDaily() {
         return Boolean(stats && dailyDate && dailyDate === stats.today());
     }
@@ -141,7 +142,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function isPlayableDailyDate(date) {
         return Boolean(stats) && typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
-            && !Number.isNaN(Date.parse(date)) && date <= stats.today();
+            && !Number.isNaN(Date.parse(date)) && date <= stats.today() && date >= stats.daily.earliest();
     }
 
     function clearSavedGame() {

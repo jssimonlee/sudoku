@@ -25,6 +25,25 @@
         } catch { /* storage unavailable: records just aren't kept */ }
     }
 
+    // One-time reset: the daily puzzles were re-levelled (Hard / Medium now alternate for every
+    // date), so daily records made on the old boards no longer match. Runs once per browser and
+    // only touches daily data: the calendar, the streak, daily bests and a daily game in progress.
+    const DAILY_RESET_KEY = 'sudoku-daily-reset';
+    const DAILY_RESET_ID = '2026-11-15';
+    try {
+        if (localStorage.getItem(DAILY_RESET_KEY) !== DAILY_RESET_ID) {
+            localStorage.removeItem(DAILY_KEY);
+            localStorage.removeItem('sudoku-daily-log');
+            const all = read(STATS_KEY);
+            delete all.daily;
+            delete all['daily-hard'];
+            write(STATS_KEY, all);
+            const saved = read('sudoku-saved-game');
+            if (saved.difficulty === 'daily') localStorage.removeItem('sudoku-saved-game');
+            localStorage.setItem(DAILY_RESET_KEY, DAILY_RESET_ID);
+        }
+    } catch { /* storage unavailable: nothing to reset */ }
+
     // The daily puzzle changes at midnight Korea time, the same moment for everyone.
     function dateKey(offsetDays = 0) {
         return new Date(Date.now() + KST_OFFSET + offsetDays * DAY_MS).toISOString().slice(0, 10);
@@ -45,13 +64,15 @@
         };
     }
 
-    // From this date on the daily puzzle alternates day by day: Hard on the first day, then
-    // Medium, Hard, ... Every earlier date stays Medium, so puzzles already played don't change.
-    const ALTERNATE_FROM = '2026-11-17';
+    // The daily puzzle alternates day by day, in both directions from this date:
+    // Hard on HARD_DAY, Medium the day before and after, and so on.
+    const HARD_DAY = '2026-11-17';
+    // An earlier daily puzzle can be played for this many days, then it closes for good.
+    const PAST_DAYS = 30;
 
     function dailyLevel(date) {
-        if (typeof date !== 'string' || date < ALTERNATE_FROM) return 'medium';
-        const days = Math.round((Date.parse(date) - Date.parse(ALTERNATE_FROM)) / DAY_MS);
+        if (typeof date !== 'string' || Number.isNaN(Date.parse(date))) return 'medium';
+        const days = Math.round((Date.parse(date) - Date.parse(HARD_DAY)) / DAY_MS);
         return days % 2 === 0 ? 'hard' : 'medium';
     }
 
@@ -129,6 +150,9 @@
             // (it is logged but never counts for the streak).
             // 'medium' | 'hard' for that date's puzzle
             level: dailyLevel,
+            // Oldest date that can still be played, and how many days back that is
+            earliest: () => dateKey(-PAST_DAYS),
+            pastDays: PAST_DAYS,
             log: dailyLog,
             isCleared: (date) => date in dailyLog(),
             logClear: logDailyClear

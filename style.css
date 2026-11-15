@@ -2998,3 +2998,22 @@ main {
     width: 5px;
     height: 5px;
 }
+
+/* Too old to play any more */
+.daily-cal-day.is-closed {
+    border-color: transparent;
+    background: rgba(100, 116, 139, 0.1);
+    color: var(--text-secondary);
+    opacity: 0.55;
+    cursor: default;
+}
+
+.daily-cal-day.is-done:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.daily-cal-swatch.is-closed {
+    border-color: transparent;
+    background: rgba(100, 116, 139, 0.25);
+}

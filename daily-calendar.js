@@ -16,8 +16,8 @@
     const prevBtn = document.getElementById('daily-cal-prev');
     const nextBtn = document.getElementById('daily-cal-next');
     const gridEl = document.getElementById('daily-cal-grid');
+    const ruleEl = document.getElementById('daily-cal-rule');
 
-    const MONTHS_BACK = 12;   // how far back an earlier puzzle can be picked
     let shown = null;         // month on screen: { y, m } (m: 0-11)
     let returnFocus = null;
 
@@ -42,7 +42,10 @@
         const today = parse(todayKey);
         const log = stats.daily.log();
         const playing = window.SudokuGame ? window.SudokuGame.currentDaily() : null;
-        const first = monthIndex(today) - MONTHS_BACK;
+        // Earlier puzzles close after a number of days; months with cleared dates stay viewable.
+        const earliest = stats.daily.earliest();
+        const oldest = Object.keys(log).concat(earliest).sort()[0];
+        const first = monthIndex(parse(oldest));
 
         const state = stats.daily.get();
         const streakAlive = state.lastCleared === todayKey || state.lastCleared === stats.today(-1);
@@ -53,6 +56,8 @@
         monthEl.textContent = `${shown.y}년 ${shown.m + 1}월`;
         prevBtn.disabled = monthIndex(shown) <= first;
         nextBtn.disabled = monthIndex(shown) >= monthIndex(today);
+
+        ruleEl.textContent = `Hard와 Medium이 하루씩 번갈아 나옵니다. 지난 퍼즐은 최근 ${stats.daily.pastDays}일 것까지만 풀 수 있고, 순위표와 연속 출석은 그날 푼 것만 인정됩니다.`;
 
         gridEl.replaceChildren();
         const lead = new Date(Date.UTC(shown.y, shown.m, 1)).getUTCDay();
@@ -85,7 +90,13 @@
             } else if (key in log) {
                 cell.classList.add('is-done');
                 note.textContent = log[key] > 0 ? formatTime(log[key]) : '✓';
-                label += `, 클리어${log[key] > 0 ? ' ' + formatTime(log[key]) : ''} (다시 풀면 연습)`;
+                label += `, 클리어${log[key] > 0 ? ' ' + formatTime(log[key]) : ''}`;
+                if (key < earliest) cell.disabled = true;
+                else label += ' (다시 풀면 연습)';
+            } else if (key < earliest) {
+                cell.disabled = true;
+                cell.classList.add('is-closed');
+                label += ', 기간이 지나 닫힘';
             } else {
                 cell.classList.add('is-open');
                 note.textContent = isToday ? '오늘' : '';
