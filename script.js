@@ -65,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Personal records + daily puzzle state (stats.js); the game works without it.
     const stats = window.PlayerStats || null;
     let dailyDate = null;        // 'YYYY-MM-DD' while playing the daily puzzle, else null
-    let dailyPractice = false;   // today's puzzle was already cleared: replay, nothing is recorded
+    let dailyPractice = false;   // that day's puzzle was already cleared: replay, nothing is recorded
+    let dailyChoice = null;      // an earlier date picked in the calendar (null = today's puzzle)
     let lastRegularDifficulty = 'medium';
     let rand = Math.random;      // swapped for a seeded generator while building the daily puzzle
 
@@ -124,7 +125,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Time spent on today's puzzle is kept, so restarting it doesn't reset the clock.
     function saveDailyElapsed() {
-        if (stats && dailyDate && !dailyPractice) stats.daily.saveElapsed(secondsElapsed);
+        if (stats && isTodayDaily() && !dailyPractice) stats.daily.saveElapsed(secondsElapsed);
+    }
+
+    // Today's daily puzzle counts for the leaderboard and the streak; an earlier date picked in
+    // the calendar (or one finished after midnight) is only marked as cleared.
+    function isTodayDaily() {
+        return Boolean(stats && dailyDate && dailyDate === stats.today());
+    }
+
+    function isPlayableDailyDate(date) {
+        return Boolean(stats) && typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+            && !Number.isNaN(Date.parse(date)) && date <= stats.today();
     }
 
     function clearSavedGame() {
@@ -148,8 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!Number.isInteger(saved.mistakes) || saved.mistakes < 0 || saved.mistakes >= MAX_MISTAKES) return null;
             const solved = saved.board.every((row, r) => row.every((v, c) => v === saved.solution[r][c]));
             if (solved) return null;
-            // A daily puzzle from another day is over: today's is a different board.
-            if (saved.difficulty === DAILY && (!stats || saved.dailyDate !== stats.today())) return null;
+            // A daily puzzle is kept for today or an earlier date (picked in the calendar).
+            if (saved.difficulty === DAILY && !isPlayableDailyDate(saved.dailyDate)) return null;
             return saved;
         } catch {
             return null;
@@ -167,7 +179,8 @@ document.addEventListener('DOMContentLoaded', () => {
             difficultySelect.value = saved.difficulty;
         }
         dailyDate = saved.difficulty === DAILY ? saved.dailyDate : null;
-        dailyPractice = Boolean(dailyDate) && stats.daily.get().cleared;
+        dailyChoice = dailyDate && !isTodayDaily() ? dailyDate : null;
+        dailyPractice = Boolean(dailyDate) && stats.daily.isCleared(dailyDate);
         board = saved.board;
         initialBoard = saved.initialBoard;
         solution = saved.solution;
@@ -234,6 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === Event Listeners ===
     difficultySelect.addEventListener('change', () => {
+        dailyChoice = null;   // "Daily" in the list always means today's puzzle
         saveDifficulty();
         initGame();
     });
@@ -241,11 +255,24 @@ document.addEventListener('DOMContentLoaded', () => {
     overlayBtn.addEventListener('click', () => {
         // After the daily puzzle, "new puzzle" goes back to the regular level.
         // (After losing it, the same button retries today's puzzle.)
-        if (difficultySelect.value === DAILY && (!stats || stats.daily.get().cleared)) {
+        if (difficultySelect.value === DAILY && (!stats || !dailyDate || stats.daily.isCleared(dailyDate))) {
             difficultySelect.value = lastRegularDifficulty;
+            dailyChoice = null;
         }
         initGame();
     });
+
+    // Daily calendar (daily-calendar.js) starts the puzzle of the date that was tapped.
+    window.SudokuGame = {
+        playDaily(date) {
+            if (!isPlayableDailyDate(date)) return false;
+            dailyChoice = date === stats.today() ? null : date;
+            difficultySelect.value = DAILY;
+            initGame();
+            return true;
+        },
+        currentDaily: () => dailyDate
+    };
 
     btnUndo.addEventListener('click', undoMove);
     btnErase.addEventListener('click', eraseCell);
@@ -518,10 +545,12 @@ document.addEventListener('DOMContentLoaded', () => {
         history = [];
         selectedCell = null;
 
-        dailyDate = stats && difficultySelect.value === DAILY ? stats.today() : null;
+        if (difficultySelect.value !== DAILY || !isPlayableDailyDate(dailyChoice)) dailyChoice = null;
+        dailyDate = stats && difficultySelect.value === DAILY ? (dailyChoice || stats.today()) : null;
         if (!dailyDate && difficultySelect.value === DAILY) difficultySelect.value = lastRegularDifficulty;
-        const dailyState = dailyDate ? stats.daily.get() : null;
-        dailyPractice = Boolean(dailyState && dailyState.cleared);
+        // Time already spent carries over for today's puzzle only.
+        const dailyState = isTodayDaily() ? stats.daily.get() : null;
+        dailyPractice = Boolean(dailyDate) && stats.daily.isCleared(dailyDate);
 
         resetTimer();
         if (dailyState && !dailyPractice) {
@@ -946,13 +975,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (dailyDate) {
                 const [, month, day] = dailyDate.split('-');
-                overlayKicker.textContent = `오늘의 퍼즐 · ${Number(month)}월 ${Number(day)}일`;
+                overlayKicker.textContent = `${isTodayDaily() ? '오늘의 퍼즐' : '지난 Daily 퍼즐'} · ${Number(month)}월 ${Number(day)}일`;
             } else {
                 overlayKicker.textContent = "퍼즐 완성";
             }
-            overlayMsg.textContent = dailyPractice
-                ? "연습으로 다시 풀었어요.\n오늘의 기록은 첫 클리어만 남습니다."
-                : "";
+            if (dailyPractice) {
+                overlayMsg.textContent = "연습으로 다시 풀었어요.\n기록은 첫 클리어만 남습니다.";
+            } else if (dailyDate && !isTodayDaily()) {
+                overlayMsg.textContent = "달력에 클리어로 표시했어요.\n지난 날짜는 순위표와 연속 출석에 들어가지 않습니다.";
+            } else {
+                overlayMsg.textContent = "";
+            }
             overlayBtn.textContent = "새 퍼즐 시작";
             showWinStats(score);
 
@@ -961,7 +994,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const record = dailyDate
                 ? { mode: DAILY, difficulty: 'medium', date: dailyDate, time: secondsElapsed, mistakes, score: null }
                 : { mode: comboOn ? 'combo' : 'normal', difficulty: difficultySelect.value, time: secondsElapsed, mistakes, score };
-            const submit = !dailyPractice;
+            const submit = !dailyPractice && (!dailyDate || isTodayDaily());
             // Play win cascade then show overlay
             celebrateAllNumbers(() => {
                 overlay.classList.add('active');
@@ -991,7 +1024,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const key = dailyDate ? DAILY : `${comboOn ? 'combo' : 'normal'}-${difficultySelect.value}`;
             // The daily puzzle keeps time only; combo score there is just for fun.
             result = stats.recordWin(key, { time: secondsElapsed, score: dailyDate ? null : score });
-            if (dailyDate) streak = stats.daily.markCleared(secondsElapsed);
+            if (isTodayDaily()) streak = stats.daily.markCleared(secondsElapsed);
+            else if (dailyDate) stats.daily.logClear(dailyDate, secondsElapsed);
+            if (dailyDate && window.DailyCalendar) window.DailyCalendar.refresh();
         }
 
         const bestNote = (isBest, prev, format) => {
@@ -1011,7 +1046,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (bestHand) addRow('최고 족보', bestHand.name, `${bestHand.points}점`);
         }
         if (result) {
-            const where = dailyDate ? '오늘의 퍼즐' : `${comboOn ? '콤보 ' : ''}${DIFFICULTY_LABEL[difficultySelect.value] || ''}`;
+            const where = dailyDate ? 'Daily 퍼즐' : `${comboOn ? '콤보 ' : ''}${DIFFICULTY_LABEL[difficultySelect.value] || ''}`;
             addRow('클리어', `${result.wins}번째`, where);
         }
         if (streak > 0) addRow('연속 출석', `${streak}일`, streak > 1 ? '🔥 이어가는 중' : '오늘부터 시작');

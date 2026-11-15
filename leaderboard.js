@@ -334,8 +334,45 @@
     }, true);
 
     // === Initials form ===
+    // With the keyboard in Korean mode a key press arrives as Hangul, which the letters-only
+    // filter used to throw away: the box looked dead. Each Hangul letter is mapped back to the
+    // key that produced it (two-set layout), so the same key presses give English initials.
+    const JAMO_KEYS = {
+        'ㅂ': 'Q', 'ㅈ': 'W', 'ㄷ': 'E', 'ㄱ': 'R', 'ㅅ': 'T', 'ㅛ': 'Y', 'ㅕ': 'U', 'ㅑ': 'I', 'ㅐ': 'O', 'ㅔ': 'P',
+        'ㅁ': 'A', 'ㄴ': 'S', 'ㅇ': 'D', 'ㄹ': 'F', 'ㅎ': 'G', 'ㅗ': 'H', 'ㅓ': 'J', 'ㅏ': 'K', 'ㅣ': 'L',
+        'ㅋ': 'Z', 'ㅌ': 'X', 'ㅊ': 'C', 'ㅍ': 'V', 'ㅠ': 'B', 'ㅜ': 'N', 'ㅡ': 'M',
+        'ㅃ': 'Q', 'ㅉ': 'W', 'ㄸ': 'E', 'ㄲ': 'R', 'ㅆ': 'T', 'ㅒ': 'O', 'ㅖ': 'P',
+        'ㅘ': 'HK', 'ㅙ': 'HO', 'ㅚ': 'HL', 'ㅝ': 'NJ', 'ㅞ': 'NP', 'ㅟ': 'NL', 'ㅢ': 'ML',
+        'ㄳ': 'RT', 'ㄵ': 'SW', 'ㄶ': 'SG', 'ㄺ': 'FR', 'ㄻ': 'FA', 'ㄼ': 'FQ', 'ㄽ': 'FT', 'ㄾ': 'FX', 'ㄿ': 'FV', 'ㅀ': 'FG', 'ㅄ': 'QT'
+    };
+    const CHO = 'ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ';
+    const JUNG = 'ㅏㅐㅑㅒㅓㅔㅕㅖㅗㅘㅙㅚㅛㅜㅝㅞㅟㅠㅡㅢㅣ';
+    const JONG = ' ㄱㄲㄳㄴㄵㄶㄷㄹㄺㄻㄼㄽㄾㄿㅀㅁㅂㅄㅅㅆㅇㅈㅊㅋㅌㅍㅎ';
+
+    function hangulToKeys(text) {
+        let out = '';
+        for (const ch of text) {
+            const code = ch.charCodeAt(0) - 0xac00;
+            if (code >= 0 && code < 11172) {   // a composed syllable: split it into its letters
+                const jong = JONG[code % 28];
+                out += (JAMO_KEYS[CHO[Math.floor(code / 588)]] || '')
+                    + (JAMO_KEYS[JUNG[Math.floor(code / 28) % 21]] || '')
+                    + (jong === ' ' ? '' : JAMO_KEYS[jong] || '');
+            } else {
+                out += JAMO_KEYS[ch] || ch;
+            }
+        }
+        return out;
+    }
+
+    function cleanInitials(text) {
+        return hangulToKeys(text).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3);
+    }
+
+    // Also runs in the middle of a Korean composition: replacing the value ends that
+    // composition, so the letter stays as English and the next key starts fresh.
     initialsInput.addEventListener('input', () => {
-        const clean = initialsInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3);
+        const clean = cleanInitials(initialsInput.value);
         if (clean !== initialsInput.value) initialsInput.value = clean;
     });
 
@@ -396,7 +433,8 @@
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!pending) return;
-        const initials = initialsInput.value.toUpperCase();
+        const initials = cleanInitials(initialsInput.value);
+        initialsInput.value = initials;
         if (!/^[A-Z0-9]{3}$/.test(initials)) {
             submitMsg.textContent = ERROR_TEXT.bad_initials;
             initialsInput.focus();

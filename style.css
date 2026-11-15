@@ -2692,3 +2692,276 @@ main {
         display: none;
     }
 }
+
+/* === Daily calendar === */
+.difficulty-selector {
+    align-items: center;
+    gap: 6px;
+}
+
+.daily-cal-btn {
+    position: relative;
+    flex: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    border: 1px solid rgba(99, 102, 241, 0.25);
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    font-size: 0.85rem;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.15s ease, background 0.2s ease;
+}
+
+.daily-cal-btn:hover {
+    background: rgba(99, 102, 241, 0.2);
+}
+
+.daily-cal-btn:active {
+    transform: scale(0.94);
+}
+
+/* Today's puzzle is still waiting */
+.daily-cal-btn.has-todo::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #f97316;
+    border: 2px solid #fff;
+}
+
+.daily-cal-content {
+    max-width: 380px;
+}
+
+.daily-cal-content h3 i {
+    margin-right: 6px;
+    color: #6366f1;
+}
+
+.daily-cal-summary {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(245, 158, 11, 0.12);
+    color: #92400e;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.daily-cal-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.daily-cal-nav strong {
+    font-size: 1rem;
+}
+
+.daily-cal-nav button {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--surface-border);
+    background: transparent;
+    color: var(--text-primary);
+    cursor: pointer;
+}
+
+.daily-cal-nav button:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.daily-cal-week,
+.daily-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.daily-cal-week {
+    margin-bottom: 4px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text-secondary);
+}
+
+.daily-cal-week span:first-child {
+    color: #ef4444;
+}
+
+.daily-cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1px;
+    padding: 0;
+    border-radius: 10px;
+    border: 1px solid var(--surface-border);
+    background: #fff;
+    color: var(--text-primary);
+    font-family: inherit;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.12s ease, box-shadow 0.15s ease;
+}
+
+.daily-cal-day:not(:disabled):hover {
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+    transform: translateY(-1px);
+}
+
+.daily-cal-num {
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.daily-cal-note {
+    min-height: 0.6rem;
+    font-size: 0.56rem;
+    font-weight: 600;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.daily-cal-day.is-open {
+    border-style: dashed;
+    border-color: rgba(100, 116, 139, 0.45);
+    color: var(--text-secondary);
+}
+
+.daily-cal-day.is-done {
+    border-color: #10b981;
+    background: #10b981;
+    color: #fff;
+}
+
+.daily-cal-day.is-future {
+    border-color: transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    opacity: 0.35;
+    cursor: default;
+}
+
+.daily-cal-day.is-today {
+    box-shadow: 0 0 0 2px #fff, 0 0 0 4px #f97316;
+}
+
+.daily-cal-day.is-today.is-open {
+    border-style: solid;
+    border-color: #f97316;
+    background: rgba(249, 115, 22, 0.1);
+    color: #c2410c;
+}
+
+/* The date being played right now */
+.daily-cal-day.is-playing .daily-cal-num {
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.daily-cal-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+    margin: 12px 0 8px;
+    padding: 0;
+    list-style: none;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+}
+
+.daily-cal-legend li {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.daily-cal-swatch {
+    width: 13px;
+    height: 13px;
+    border-radius: 4px;
+    border: 1px solid var(--surface-border);
+    background: #fff;
+}
+
+.daily-cal-swatch.is-done {
+    border-color: #10b981;
+    background: #10b981;
+}
+
+.daily-cal-swatch.is-open {
+    border-style: dashed;
+    border-color: rgba(100, 116, 139, 0.6);
+}
+
+.daily-cal-swatch.is-today {
+    border-color: #f97316;
+    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.35);
+}
+
+.daily-cal-rule {
+    margin: 0 0 8px;
+    font-size: 0.76rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* Records stay on this device only */
+.daily-cal-device {
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+    margin: 0;
+    padding: 9px 11px;
+    border-radius: 10px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    font-size: 0.74rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.daily-cal-device i {
+    margin-top: 2px;
+    color: #6366f1;
+}
+
+@media (max-width: 400px) {
+    .stats-bar {
+        padding: 12px 14px;
+    }
+
+    .daily-cal-btn {
+        width: 28px;
+        height: 28px;
+    }
+}
+
+/* Room for the calendar button between the level list and the timer */
+.stats-bar {
+    gap: 8px;
+}
+
+.difficulty-selector,
+.mistakes-container {
+    flex: 1 1 auto;
+}
+
+.timer-slot {
+    flex: 0 0 auto;
+}

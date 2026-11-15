@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome for Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261113b">
+    <link rel="stylesheet" href="style.css?v=20261115b">
 </head>
 
 <body>
@@ -51,6 +51,11 @@
                         <option value="expert">Expert</option>
                         <option value="daily">📅 Daily</option>
                     </select>
+                    <!-- Daily calendar: cleared dates, and earlier puzzles that were missed -->
+                    <button id="daily-cal-btn" class="daily-cal-btn" type="button" aria-label="Daily 달력"
+                        title="Daily 달력">
+                        <i class="fas fa-calendar-alt"></i>
+                    </button>
                 </div>
                 <!-- Timer and pause in one pill: tap it to pause / resume -->
                 <div class="timer-slot">
@@ -150,6 +155,39 @@
                 </div>
             </div>
 
+            <!-- Daily Calendar Popup -->
+            <div class="combo-modal" id="daily-cal-modal" role="dialog" aria-modal="true"
+                aria-labelledby="daily-cal-title" hidden>
+                <div class="combo-modal-content daily-cal-content">
+                    <div class="combo-modal-header">
+                        <h3 id="daily-cal-title"><i class="fas fa-calendar-alt"></i> Daily 달력</h3>
+                        <button class="combo-modal-close" id="daily-cal-close" type="button" aria-label="닫기">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <p class="daily-cal-summary" id="daily-cal-summary"></p>
+                    <div class="daily-cal-nav">
+                        <button type="button" id="daily-cal-prev" aria-label="이전 달"><i class="fas fa-chevron-left"></i></button>
+                        <strong id="daily-cal-month" aria-live="polite"></strong>
+                        <button type="button" id="daily-cal-next" aria-label="다음 달"><i class="fas fa-chevron-right"></i></button>
+                    </div>
+                    <div class="daily-cal-week" aria-hidden="true">
+                        <span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span>
+                    </div>
+                    <div class="daily-cal-grid" id="daily-cal-grid"></div>
+                    <ul class="daily-cal-legend">
+                        <li><span class="daily-cal-swatch is-done"></span>클리어</li>
+                        <li><span class="daily-cal-swatch is-open"></span>안 푼 날 (눌러서 도전)</li>
+                        <li><span class="daily-cal-swatch is-today"></span>오늘</li>
+                    </ul>
+                    <p class="daily-cal-rule">지난 날짜 퍼즐도 풀 수 있어요. 다만 순위표와 연속 출석은 그날 푼 것만 인정됩니다.</p>
+                    <p class="daily-cal-device">
+                        <i class="fas fa-mobile-alt"></i>
+                        <span>이 달력은 지금 쓰는 기기의 이 브라우저에만 저장돼요. 다른 기기나 브라우저로 바꾸거나 인터넷 사용 기록을 지우면 처음부터 다시 시작합니다.</span>
+                    </p>
+                </div>
+            </div>
+
             <!-- Effect Settings Popup -->
             <div class="combo-modal" id="fx-modal" role="dialog" aria-modal="true" aria-labelledby="fx-modal-title" hidden>
                 <div class="combo-modal-content">
@@ -198,8 +236,9 @@
                         <p class="lb-submit-title">TOP 10 진입!</p>
                         <ul class="lb-qualify" id="lb-qualify"></ul>
                         <label class="lb-initials-label" for="lb-initials">이니셜 (영문·숫자 3글자)</label>
-                        <input id="lb-initials" class="lb-initials" maxlength="3" autocomplete="off"
-                            autocapitalize="characters" spellcheck="false" inputmode="text">
+                        <!-- no maxlength: a Korean-mode key press must reach the script to be converted -->
+                        <input id="lb-initials" class="lb-initials" lang="en" autocomplete="off"
+                            autocapitalize="characters" autocorrect="off" spellcheck="false" inputmode="text">
                         <div class="lb-turnstile" id="lb-turnstile" hidden></div>
                         <p class="lb-message" id="lb-submit-msg" role="status"></p>
                         <div class="lb-actions">
@@ -256,12 +295,13 @@
             </div>
         </main>
     </div>
-    <script src="stats.js?v=20261113b"></script>
-    <script src="effects.js?v=20261113b"></script>
-    <script src="combo.js?v=20261113b"></script>
-    <script src="leaderboard-config.js?v=20261113b"></script>
-    <script src="leaderboard.js?v=20261113b"></script>
-    <script src="script.js?v=20261113b"></script>
+    <script src="stats.js?v=20261115b"></script>
+    <script src="effects.js?v=20261115b"></script>
+    <script src="combo.js?v=20261115b"></script>
+    <script src="leaderboard-config.js?v=20261115b"></script>
+    <script src="leaderboard.js?v=20261115b"></script>
+    <script src="script.js?v=20261115b"></script>
+    <script src="daily-calendar.js?v=20261115b"></script>
 </body>
 
 </html>
