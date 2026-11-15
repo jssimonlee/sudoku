@@ -3017,3 +3017,55 @@ main {
     border-color: transparent;
     background: rgba(100, 116, 139, 0.25);
 }
+
+/* === Phones: the board runs almost edge to edge ===
+   Screen edge to the first cell was 33px (20 page + 1 border + 10 card + 2 grid line);
+   it is now 12px (6 + 1 + 3 + 2). The bars above and below share the same 6px margin,
+   so everything lines up with the board card. */
+@media (max-width: 480px) {
+    .app-container {
+        padding: 14px 6px;
+        gap: 14px;
+    }
+
+    main {
+        gap: 14px;
+    }
+
+    .controls-panel {
+        gap: 12px;
+    }
+
+    .board-container {
+        padding: 3px;
+        border-radius: 10px;
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .sudoku-board {
+        border-radius: 7px;
+    }
+
+    .overlay {
+        border-radius: 10px;
+    }
+
+    /* The title and buttons sit a little inside the card edge, like the text in the bars */
+    .header-top {
+        padding: 0 6px;
+        margin-bottom: 12px;
+    }
+
+    .stats-bar {
+        padding: 10px 14px;
+        border-radius: 14px;
+    }
+
+    .numpad {
+        gap: 6px;
+    }
+
+    .action-buttons {
+        gap: 6px;
+    }
+}
