@@ -337,8 +337,22 @@
     document.addEventListener('keydown', (e) => {
         if (e.key >= '1' && e.key <= '9' && !e.ctrlKey && !e.metaKey && !e.altKey) pressNumButton(numButton(e.key));
     });
-    document.addEventListener('pointerdown', clearBoardWaves, true);
-    window.addEventListener('keydown', clearBoardWaves, true);
+    // Big labels ("풀하우스!" etc.) never block play: the next tap anywhere or any key
+    // fades them out at once (the tap itself still reaches the board).
+    function dismissBanners() {
+        document.querySelectorAll('.fx-banner:not(.fx-banner-out)').forEach((el) => {
+            el.classList.add('fx-banner-out');
+            setTimeout(() => el.remove(), 140);
+        });
+    }
+
+    function onNextInput() {
+        clearBoardWaves();
+        dismissBanners();
+    }
+
+    document.addEventListener('pointerdown', onNextInput, true);
+    window.addEventListener('keydown', onNextInput, true);
 
     // Light up the hand's cells in input order.
     function cellWave(keys, tier) {

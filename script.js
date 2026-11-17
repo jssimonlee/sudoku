@@ -622,6 +622,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 boardElement.appendChild(cell);
             }
         }
+
+        // Grid lines live on their own layer above the cells, so an effect that scales,
+        // shakes or rotates a cell can never bend or shift the lines.
+        const lines = document.createElement('div');
+        lines.className = 'board-lines';
+        lines.setAttribute('aria-hidden', 'true');
+        for (let i = 0; i < 81; i++) lines.appendChild(document.createElement('i'));
+        boardElement.appendChild(lines);
     }
 
     function selectCell(r, c) {

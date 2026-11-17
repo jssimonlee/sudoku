@@ -292,6 +292,48 @@ main {
     border-radius: 4px;
     overflow: hidden;
     background: var(--cell-bg);
+    /* Own stacking layer: cell effects (z-index) and the line layer stay inside the board. */
+    position: relative;
+    z-index: 0;
+}
+
+/* Grid lines: a second, invisible 9x9 grid laid over the cells that only draws borders.
+   Cells keep same-width transparent borders, so sizes and number positions don't change,
+   but whatever an effect does to a cell, the lines above it stay perfectly straight. */
+.board-lines {
+    position: absolute;
+    inset: 0;
+    z-index: 20;
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    grid-template-rows: repeat(9, 1fr);
+    pointer-events: none;
+}
+
+.board-lines > i {
+    border-right: 1px solid var(--cell-border);
+    border-bottom: 1px solid var(--cell-border);
+}
+
+.board-lines > i:nth-child(3n) {
+    border-right: 2px solid var(--cell-border-thick);
+}
+
+.board-lines > i:nth-child(9n) {
+    border-right: none;
+}
+
+.board-lines > i:nth-child(n+19):nth-child(-n+27),
+.board-lines > i:nth-child(n+46):nth-child(-n+54) {
+    border-bottom: 2px solid var(--cell-border-thick);
+}
+
+.board-lines > i:nth-child(n+73):nth-child(-n+81) {
+    border-bottom: none;
+}
+
+.sudoku-board > .cell {
+    border-color: transparent !important;
 }
 
 .cell {
@@ -1529,6 +1571,14 @@ main {
     100% { opacity: 0; transform: translate(-50%, -50%) scale(1.4); }
 }
 
+/* Dismissed by the next tap / key: fade out fast from wherever the entry animation was */
+.fx-banner.fx-banner-out {
+    animation: none;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.9);
+    transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+
 /* Board shake / glow */
 .board-container.fx-shake-small { animation: fxShakeSmall 0.35s ease-in-out; }
 .board-container.fx-shake-big { animation: fxShakeBig 0.5s ease-in-out; }
@@ -1541,11 +1591,11 @@ main {
 }
 
 @keyframes fxShakeBig {
-    0%, 100% { transform: translate(0, 0) rotate(0); }
-    15% { transform: translate(-9px, 3px) rotate(-1deg); }
-    30% { transform: translate(8px, -4px) rotate(1deg); }
-    45% { transform: translate(-6px, 2px) rotate(-0.6deg); }
-    60% { transform: translate(5px, -2px) rotate(0.5deg); }
+    0%, 100% { transform: translate(0, 0); }
+    15% { transform: translate(-9px, 3px); }
+    30% { transform: translate(8px, -4px); }
+    45% { transform: translate(-6px, 2px); }
+    60% { transform: translate(5px, -2px); }
     80% { transform: translate(-2px, 1px); }
 }
 
