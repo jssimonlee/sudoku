@@ -5,7 +5,7 @@
     const SETTINGS_KEY = 'sudoku-combo-effects';
     // boardFx: richer effects for the normal Sudoku game (off = the original effects only)
     // effects: combo-mode visuals. sound / vibrate are shared by both.
-    const DEFAULT_SETTINGS = { boardFx: true, effects: true, sound: true, vibrate: true };
+    const DEFAULT_SETTINGS = { boardFx: true, lastEmpty: true, effects: true, sound: true, vibrate: true };
 
     // Hand id → effect tier (1 = small … 4 = biggest)
     const TIER_BY_HAND = {
@@ -714,6 +714,7 @@
     function bindSettingsUI() {
         const inputs = {
             boardFx: document.getElementById('fx-setting-board'),
+            lastEmpty: document.getElementById('fx-setting-last-empty'),
             effects: document.getElementById('fx-setting-effects'),
             sound: document.getElementById('fx-setting-sound'),
             vibrate: document.getElementById('fx-setting-vibrate')
@@ -761,6 +762,8 @@
         function sync() {
             // Lets CSS gate persistent rich effects (e.g. the last-life pulse).
             document.body.classList.toggle('fx-rich', !!settings.boardFx);
+            // The last-empty-cell glow has its own switch (see .fx-last-empty in style.css).
+            document.body.classList.toggle('fx-last-empty', !!settings.lastEmpty);
             if (headerBtn) {
                 headerBtn.classList.toggle('fx-active', !!settings.boardFx);
                 headerBtn.setAttribute('aria-pressed', String(!!settings.boardFx));
