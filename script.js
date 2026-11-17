@@ -85,6 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const overlayMsg = document.getElementById('overlay-msg');
     const overlayBtn = document.getElementById('overlay-btn');
     const overlayStats = document.getElementById('overlay-stats');
+    const overlayStamps = document.getElementById('overlay-stamps');
     const pauseOverlay = document.getElementById('pause-overlay');
     const pauseResumeBtn = document.getElementById('pause-resume-btn');
 
@@ -917,6 +918,35 @@ document.addEventListener('DOMContentLoaded', () => {
             refreshSelectedNumberUI();
         }
         combo.syncCounts(counts);
+        markLastEmptyCells();
+    }
+
+    // A row, column or box with exactly one empty cell left: that cell gets a soft glow
+    // (drawn only with rich effects on, see .fx-rich .cell.last-empty in style.css).
+    function markLastEmptyCells() {
+        const last = new Set();
+        const check = (cells) => {
+            const empty = cells.filter(([r, c]) => board[r][c] === 0);
+            if (empty.length === 1) last.add(empty[0][0] * 9 + empty[0][1]);
+        };
+        for (let i = 0; i < 9; i++) {
+            const row = [], col = [], box = [];
+            for (let j = 0; j < 9; j++) {
+                row.push([i, j]);
+                col.push([j, i]);
+                box.push([Math.floor(i / 3) * 3 + Math.floor(j / 3), (i % 3) * 3 + (j % 3)]);
+            }
+            check(row);
+            check(col);
+            check(box);
+        }
+        for (let r = 0; r < 9; r++) {
+            for (let c = 0; c < 9; c++) {
+                // The 81 cells are the board's first children, in row order.
+                const el = boardElement.children[r * 9 + c];
+                if (el && el.classList.contains('cell')) el.classList.toggle('last-empty', last.has(r * 9 + c));
+            }
+        }
     }
 
     // Cascade wave animation for a completed number
@@ -977,6 +1007,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pauseIcon.className = 'fas fa-pause';
         overlayContent.classList.remove('win-state', 'error-state');
         if (overlayStats) overlayStats.replaceChildren();
+        if (overlayStamps) overlayStamps.replaceChildren();
 
         if (isWin) {
             emitFx('onWin');
@@ -1001,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 overlayMsg.textContent = "";
             }
             overlayBtn.textContent = "새 퍼즐 시작";
-            showWinStats(score);
+            const stamps = showWinStats(score);
 
             // Record for the TOP 10 check (leaderboard.js); captured now, before anything resets.
             // The daily puzzle has its own board; a replay of it is never sent.
@@ -1013,7 +1044,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Play win cascade then show overlay
             celebrateAllNumbers(() => {
                 overlay.classList.add('active');
-                if (submit && window.Leaderboard) window.Leaderboard.onWin(record);
+                // The TOP 10 popup waits until the stamps have landed, so it doesn't hide them.
+                const stampWait = showStamps(stamps);
+                if (submit && window.Leaderboard) setTimeout(() => window.Leaderboard.onWin(record), stampWait);
             });
         } else {
             overlayContent.classList.add('error-state');
@@ -1081,6 +1114,38 @@ document.addEventListener('DOMContentLoaded', () => {
             row.append(labelEl, valueEl, noteEl);
             overlayStats.appendChild(row);
         });
+
+        // Stamps for the result card: no mistakes, and a beaten personal best
+        // (time, or combo score outside the daily; the very first clear has nothing to beat).
+        const newRecord = Boolean(result && !result.first &&
+            (result.isBestTime || (comboOn && !dailyDate && result.isBestScore)));
+        return { perfect: mistakes === 0, record: newRecord };
+    }
+
+    // The stamps thump onto the result card one after the other once it is shown.
+    const STAMP_DELAY_MS = 380;
+    const STAMP_STEP_MS = 420;
+    // Returns how long (ms) the stamps take to land: 0 when there are none.
+    function showStamps(stamps) {
+        if (!overlayStamps || !stamps) return 0;
+        const list = [];
+        if (stamps.perfect) list.push({ cls: 'stamp-perfect', big: 'PERFECT', small: '노미스 클리어' });
+        if (stamps.record) list.push({ cls: 'stamp-record', big: 'NEW RECORD', small: '개인 신기록' });
+        overlayStamps.replaceChildren();
+        list.forEach((s, i) => {
+            const el = document.createElement('div');
+            el.className = `result-stamp ${s.cls}`;
+            el.style.animationDelay = `${STAMP_DELAY_MS + i * STAMP_STEP_MS}ms`;
+            const big = document.createElement('strong');
+            big.textContent = s.big;
+            const small = document.createElement('span');
+            small.textContent = s.small;
+            el.append(big, small);
+            overlayStamps.appendChild(el);
+        });
+        if (!list.length) return 0;
+        emitFx('onStamps', { count: list.length, delay: STAMP_DELAY_MS, step: STAMP_STEP_MS });
+        return STAMP_DELAY_MS + list.length * STAMP_STEP_MS + 600;
     }
 
     // Cascade all 9 numbers in sequence at win, then call callback

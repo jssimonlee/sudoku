@@ -118,6 +118,18 @@
             tone(f * 2 * 1.006, 0.11, 0.42, { type: 'sine', gain: 0.12 });
             tone(f * 4, 0.11, 0.18, { type: 'triangle', gain: 0.05 });
         },
+        // Speed rhythm: a soft bell over the input note that climbs one step per quick input.
+        rhythm(step) {
+            const f = RHYTHM_NOTES[Math.min(step, RHYTHM_NOTES.length) - 1];
+            tone(f, 0.02, 0.16, { type: 'sine', gain: 0.16 });
+            tone(f * 2, 0.02, 0.07, { type: 'triangle', gain: 0.04 });
+        },
+        // A rubber stamp hitting paper: a low thump with a short papery click.
+        stamp(i) {
+            tone(140 - i * 15, 0, 0.16, { type: 'sine', gain: 0.6, slideTo: 60 });
+            tone(1800, 0, 0.03, { type: 'square', gain: 0.05 });
+            tone(i === 0 ? N.C6 : N.E6, 0.06, 0.3, { type: 'triangle', gain: 0.18 });
+        },
         unit(count) {
             const notes = count >= 2 ? [N.C6, N.E6, N.G6, N.C7] : [N.G5, N.C6, N.E6];
             notes.forEach((f, i) => tone(f, 0.05 + i * 0.06, 0.22, { type: 'triangle', gain: 0.32 }));
@@ -147,6 +159,9 @@
         }
     };
 
+    // Major pentatonic from C6 up: always sounds bright, whatever the input numbers are.
+    const RHYTHM_NOTES = [1046.5, 1174.66, 1318.5, 1568, 1760, 2093, 2349.3, 2637];
+
     const SCALE = { 1: 523.25, 2: 587.33, 3: 659.25, 4: 698.46, 5: 783.99, 6: 880, 7: 987.77, 8: 1046.5, 9: 1174.66 };
 
     function playSound(name, arg) {
@@ -157,7 +172,7 @@
     }
 
     // === Vibration ===
-    const VIBRATION = { tap: 10, 3: 40, 4: [60, 40, 60, 40, 120], break: 90, unit: 25, number: 40, win: [80, 50, 80, 50, 200], mistake: [70, 40, 50], lifeOut: [120, 60, 120, 60, 300] };
+    const VIBRATION = { stamp: 35, tap: 10, 3: 40, 4: [60, 40, 60, 40, 120], break: 90, unit: 25, number: 40, win: [80, 50, 80, 50, 200], mistake: [70, 40, 50], lifeOut: [120, 60, 120, 60, 300] };
 
     function vibrate(name) {
         if (!settings.vibrate || !VIBRATION[name] || !navigator.vibrate) return;
@@ -447,6 +462,39 @@
 
     let lastBankAt = -Infinity;
 
+    // === Speed rhythm: correct inputs less than RHYTHM_GAP_MS apart build a streak ===
+    // Each step raises the bell note; the board's rim glows brighter (3 levels).
+    // Pausing longer than the gap, or a mistake, quietly starts over (no penalty).
+    const RHYTHM_GAP_MS = 3000;
+    let rhythmStep = 0;
+    let lastCorrectAt = -Infinity;
+    let rhythmTimer = null;
+
+    function setRhythmGlow(step) {
+        const box = document.querySelector('.board-container');
+        if (!box) return;
+        const level = step >= 7 ? 3 : step >= 4 ? 2 : step >= 2 ? 1 : 0;
+        if (level) box.dataset.rhythm = String(level);
+        else delete box.dataset.rhythm;
+    }
+
+    function resetRhythm() {
+        rhythmStep = 0;
+        lastCorrectAt = -Infinity;
+        clearTimeout(rhythmTimer);
+        setRhythmGlow(0);
+    }
+
+    function advanceRhythm() {
+        const now = performance.now();
+        rhythmStep = now - lastCorrectAt < RHYTHM_GAP_MS ? rhythmStep + 1 : 0;
+        lastCorrectAt = now;
+        setRhythmGlow(rhythmStep);
+        clearTimeout(rhythmTimer);
+        rhythmTimer = setTimeout(resetRhythm, RHYTHM_GAP_MS);
+        return rhythmStep;
+    }
+
     // === Completed row / column / box: each shape gets its own flash ===
     function unitShape(unit) {
         if (unit.every(([ur]) => ur === unit[0][0])) return 'row';
@@ -543,7 +591,11 @@
             if (!settings.boardFx) return;
             // A combo hand banked by this same input already played its sound.
             const comboSounded = performance.now() - lastBankAt < 80;
-            if (!comboSounded) playSound('pop', val);
+            const step = advanceRhythm();
+            if (!comboSounded) {
+                playSound('pop', val);
+                if (step >= 1) playSound('rhythm', step);
+            }
 
             const cell = getCell(r * 9 + c);
             if (cell) {
@@ -603,7 +655,18 @@
             }
         },
 
+        // Result card stamps landing one after another ({ count, delay, step } in ms).
+        onStamps({ count, delay, step }) {
+            for (let i = 0; i < count; i++) {
+                setTimeout(() => {
+                    playSound('stamp', i);
+                    vibrate('stamp');
+                }, delay + i * step + 120);
+            }
+        },
+
         onWin() {
+            resetRhythm();
             if (!settings.boardFx) return;
             playSound('win');
             vibrate('win');
@@ -619,6 +682,7 @@
 
         // A life was lost. bar: the health bar that just emptied, livesLeft: lives remaining.
         onMistake({ r, c, bar, livesLeft } = {}) {
+            resetRhythm();
             if (!settings.boardFx) return;
             const final = livesLeft === 0;
             playSound(final ? 'lifeOut' : 'lifeLost', livesLeft);
