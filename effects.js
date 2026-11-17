@@ -5,6 +5,10 @@
     const SETTINGS_KEY = 'sudoku-combo-effects';
     // boardFx: richer effects for the normal Sudoku game (off = the original effects only)
     // effects: combo-mode visuals. sound / vibrate are shared by both.
+    // The last-empty-cell glow is switched off for now (it hints too much and changes how
+    // the game plays). Code and setting stay; set this to true to bring it back.
+    const LAST_EMPTY_AVAILABLE = false;
+
     const DEFAULT_SETTINGS = { boardFx: true, lastEmpty: true, effects: true, sound: true, vibrate: true };
 
     // Hand id → effect tier (1 = small … 4 = biggest)
@@ -763,7 +767,7 @@
             // Lets CSS gate persistent rich effects (e.g. the last-life pulse).
             document.body.classList.toggle('fx-rich', !!settings.boardFx);
             // The last-empty-cell glow has its own switch (see .fx-last-empty in style.css).
-            document.body.classList.toggle('fx-last-empty', !!settings.lastEmpty);
+            document.body.classList.toggle('fx-last-empty', LAST_EMPTY_AVAILABLE && !!settings.lastEmpty);
             if (headerBtn) {
                 headerBtn.classList.toggle('fx-active', !!settings.boardFx);
                 headerBtn.setAttribute('aria-pressed', String(!!settings.boardFx));
@@ -798,6 +802,12 @@
                 sync();
                 if (settings.sound) playSound(1);
             });
+        }
+
+        // The last-empty option is hidden while the feature is switched off.
+        if (!LAST_EMPTY_AVAILABLE && inputs.lastEmpty) {
+            const row = inputs.lastEmpty.closest('.fx-setting');
+            if (row) row.hidden = true;
         }
 
         // Hide the vibration option where the device can't vibrate.
