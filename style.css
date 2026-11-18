@@ -4541,3 +4541,14 @@ body.tp-open {
         animation: none;
     }
 }
+
+/* 합 10 지우기: play goes on while other spots pop and fall. Cells still moving are locked
+   and dimmed a little, so it's clear why they don't respond yet. */
+.tp-board .tp-cell {
+    transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.tp-board .tp-cell.tp-locked {
+    filter: saturate(0.55) brightness(0.9);
+    opacity: 0.82;
+}

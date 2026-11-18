@@ -13,6 +13,8 @@
 // - No ready-made 10s: a touching pair making 10 never stays on the board. A random board is
 //   dealt without any; a solved Sudoku board has a few numbers trade places until it has none;
 //   after every fall, any pair making 10 pops by itself (chains).
+// - Play never stops: while one spot pops and falls, the rest of the board can be swapped.
+//   Only moving cells are locked (a column above a gap, until what falls in has landed).
 // - Fever: quick matches fill the fever gauge; when it is full, points are doubled for 10 seconds.
 // - Special cells: ★ doubles that match, 💣 also blows up its four neighbours (a few also drop in
 //   with the new numbers). Ice that needed two hits was dropped: it only got in the way.
@@ -103,7 +105,12 @@
     let feverEndsAt = 0;
     let feverLeftMs = 0;
     let hintShown = false;
-    let busy = false;
+    // Cells in motion, so play can go on elsewhere while a spot pops and falls:
+    let popping = new Set();    // cells (keys) popping right now
+    let swapping = new Set();   // cells (keys) sliding in a swap
+    let locks = [];             // { c, row }: column c is locked from the top down to row
+    let holes = new Set();      // columns with gaps waiting to fall
+    let pendingLocks = [];      // per column, the locks that end when it has fallen
     let finished = false;
     let picked = null;      // [r, c] chosen by a tap, waiting for a neighbour
     let press = null;       // { cell, x, y } while a finger / mouse is down
@@ -366,23 +373,34 @@
         return cls;
     }
 
-    function render(drops = null) {
-        for (let r = 0; r < SIZE; r++) {
-            for (let c = 0; c < SIZE; c++) {
-                const cell = cells[r * SIZE + c];
-                const v = grid[r][c];
-                cell.textContent = v === JOKER ? '?' : v ? String(v) : '';
-                cell.className = cellClass(r, c);
-                const drop = drops ? drops[r][c] : 0;
-                if (drop > 0) {
-                    cell.style.setProperty('--drop', drop);
-                    cell.style.setProperty('--fall-ms', `${Math.round(160 + 70 * Math.sqrt(drop))}ms`);
-                    void cell.offsetWidth;
-                    cell.classList.add('tp-fall');
-                }
+    // Redraws only the given cells, so animations elsewhere on the board keep playing.
+    function renderCells(list, drops = null) {
+        list.forEach(([r, c]) => {
+            const cell = cells[r * SIZE + c];
+            const v = grid[r][c];
+            cell.textContent = v === JOKER ? '?' : v ? String(v) : '';
+            cell.className = cellClass(r, c);
+            const drop = drops ? drops[r][c] : 0;
+            if (drop > 0) {
+                cell.style.setProperty('--drop', drop);
+                cell.style.setProperty('--fall-ms', `${Math.round(160 + 70 * Math.sqrt(drop))}ms`);
+                void cell.offsetWidth;
+                cell.classList.add('tp-fall');
             }
-        }
-        if (picked && at(picked)) cellEl(picked).classList.add('tp-anchor');
+            if (picked && same(picked, [r, c]) && v) cell.classList.add('tp-anchor');
+        });
+    }
+
+    const ALL_CELLS = Array.from({ length: SIZE * SIZE }, (_, i) => [Math.floor(i / SIZE), i % SIZE]);
+
+    function render() {
+        renderCells(ALL_CELLS);
+        renderLocks();
+        renderStats();
+        setHint();
+    }
+
+    function renderStats() {
         scoreEl.textContent = score.toLocaleString();
         chainEl.textContent = maxChain ? String(maxChain) : '-';
         comboEl.textContent = combo >= 2 ? `×${combo}` : '-';
@@ -392,7 +410,6 @@
         renderItems();
         renderFever();
         renderTime();
-        setHint();
     }
 
     function renderItems() {
@@ -443,8 +460,8 @@
         const now = performance.now();
         const dt = now - lastTick;
         lastTick = now;
-        // The clock stops while a chain is playing out and while the page is in the background.
-        if (finished || !root || root.hidden || busy || paused || document.hidden) return;
+        // The clock runs all the time (play goes on during chains), except in the background.
+        if (finished || !root || root.hidden || paused || document.hidden) return;
         timeLeft -= dt;
         playMs += dt;
         if (timeLeft <= 0) {
@@ -473,7 +490,7 @@
 
     // 💡: the two cells of a good swap wiggle until the next move.
     function useHint() {
-        if (finished || busy || paused || hintsLeft <= 0 || hintShown) return;
+        if (finished || paused || hintsLeft <= 0 || hintShown) return;
         if (itemMode) cancelItem();
         const swap = findSwap();
         if (!swap) return;
@@ -502,9 +519,9 @@
     // e: a PointerEvent, or a Touch (fromTouch). Both carry clientX / clientY.
     function onDown(e, fromTouch) {
         clearHint();
-        if (busy || finished || paused) return;
+        if (finished || paused) return;
         const p = pointToCell(e);
-        if (!p) return;
+        if (!p || cellBusy(p)) return;
         if (!fromTouch) {
             e.preventDefault();
             try { boardEl.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
@@ -530,7 +547,7 @@
 
     // Dragging a cell toward a neighbour swaps it with that neighbour.
     function onMove(e) {
-        if (!press || busy) return;
+        if (!press || finished || paused) return;
         const rect = boardEl.getBoundingClientRect();
         const step = rect.width / SIZE;
         const dx = (e.clientX - press.x) / step;
@@ -539,7 +556,7 @@
         const [r, c] = press.cell;
         const to = Math.abs(dx) > Math.abs(dy) ? [r, c + Math.sign(dx)] : [r + Math.sign(dy), c];
         press = null;
-        if (!inside(to[0], to[1]) || !at(to)) return;
+        if (!inside(to[0], to[1]) || !at(to) || cellBusy(to)) return;
         setPicked(null);
         trySwap([r, c], to);
     }
@@ -575,33 +592,63 @@
         });
     }
 
+    // The board never locks as a whole: while one spot pops and falls, the rest can be played.
+    // Only cells that are moving are off limits: those being swapped, popping, or in a column
+    // above a gap until the fall has landed.
+    function cellBusy(p) {
+        const k = keyOf(p);
+        if (popping.has(k) || swapping.has(k)) return true;
+        return locks.some((lock) => lock.c === p[1] && p[0] <= lock.row);
+    }
+
+    const isIdle = () => !popping.size && !swapping.size && !locks.length && !holes.size;
+
+    // Locked cells are dimmed a little, so it is clear why they don't respond.
+    function renderLocks() {
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                const k = r * SIZE + c;
+                const locked = !popping.has(k) && !swapping.has(k) && grid[r][c] !== 0 &&
+                    locks.some((lock) => lock.c === c && r <= lock.row);
+                cells[k].classList.toggle('tp-locked', locked);
+            }
+        }
+    }
+
     function trySwap(a, b) {
-        if (busy || finished) return;
-        busy = true;
+        if (finished || cellBusy(a) || cellBusy(b)) return;
+        swapping.add(keyOf(a));
+        swapping.add(keyOf(b));
         swapCells(a, b);
-        render();
+        renderCells([a, b]);
         animateSwap(a, b);
         fx('onTenSwap');
         const id = gameId;
-        // A rainbow piece swapped with a number pops every copy of that number.
-        const rainbowAt = isRainbow(a) ? a : isRainbow(b) ? b : null;
-        if (rainbowAt) {
-            setTimeout(() => {
-                if (id !== gameId) return;
-                fireRainbow(rainbowAt, same(rainbowAt, a) ? b : a);
-            }, SWAP_MS + 40);
-            return;
-        }
-        const matches = swapMatches(grid, a, b);
+        const release = () => {
+            swapping.delete(keyOf(a));
+            swapping.delete(keyOf(b));
+        };
         setTimeout(() => {
-            if (id !== gameId) return;
+            if (id !== gameId || finished) return;
+            // A rainbow piece swapped with a number pops every copy of that number.
+            const rainbowAt = isRainbow(a) ? a : isRainbow(b) ? b : null;
+            if (rainbowAt) {
+                release();
+                fireRainbow(rainbowAt, same(rainbowAt, a) ? b : a);
+                settleColumns(0);
+                return;
+            }
+            // Neighbours that are still moving don't count (a chain picks them up once they land).
+            const matches = swapMatches(grid, a, b).filter((m) => !cellBusy(m.line[1]));
             if (matches.length) {
+                release();
                 scoreMatch(matches, a, b);
+                settleColumns(0);
                 return;
             }
             // No match: slide back, and the combo is over.
             swapCells(a, b);
-            render();
+            renderCells([a, b]);
             animateSwap(a, b);
             [a, b].forEach((p) => {
                 const cell = cellEl(p);
@@ -612,8 +659,10 @@
             fx('onTenMiss');
             setTimeout(() => {
                 if (id !== gameId) return;
-                busy = false;
+                release();
                 clearHint();
+                settleColumns(0);
+                checkIdle();
             }, SWAP_MS);
         }, SWAP_MS + 40);
     }
@@ -656,7 +705,6 @@
             (result.stars ? 2 : 1) * feverMult) + result.extra.length * 15 * feverMult;
         score += points;
 
-        animateClear(result);
         fx('onTenClear', { cells: union.map(cellEl), combo, points, length: union.length, star: result.stars > 0, fever: feverOn });
         if (result.stars) banner('★ 점수 2배!', 2);
         else if (cross && made) banner(matches.length >= 3 ? '트리플! 🌈 생성' : '더블! ⚡ 생성', 2);
@@ -669,7 +717,7 @@
         if (combo >= 4 && combo % 4 === 0) giveItem();
         addFever(8 + 3 * Math.min(combo, 6) + (cross ? 8 : 0));
         restartComboWindow();
-        popThenChain(result);
+        launchClear(result, 0);
     }
 
     function breakCombo() {
@@ -707,7 +755,8 @@
         let rainbows = 0;
         const hit = (p, fromBomb) => {
             const k = keyOf(p);
-            if (removed.has(k) || cracked.some((q) => same(q, p))) return;
+            // Cells already on their way out, or mid-swap, are left alone.
+            if (removed.has(k) || popping.has(k) || swapping.has(k) || !at(p)) return;
             const sp = special[p[0]][p[1]];
             removed.set(k, p);
             if (fromBomb) extra.push(p);
@@ -749,37 +798,83 @@
         }
     }
 
-    // Removes the cells and lets everything fall (new numbers fill the top). Returns how far each cell fell.
-    function applyClear(result) {
-        result.removed.forEach(([r, c]) => {
-            grid[r][c] = 0;
-            special[r][c] = null;
-        });
-        result.cracked.forEach(([r, c]) => {
-            if (special[r][c]) special[r][c].hp = 1;
-        });
-        cleared += result.removed.length;
-        return applyGravity();
-    }
-
-    // Pop what the result takes, let it fall, then let chains play out.
-    function popThenChain(result) {
+    // Pops the cells of a clear. Each column is locked down to its lowest popped cell until
+    // what falls in has landed; the rest of the board stays playable. Several clears can run
+    // at once, each settling its own columns and checking for chains when they land.
+    function launchClear(result, step) {
         const id = gameId;
+        const list = result.removed;
+        renderStats();
+        if (!list.length) {
+            checkIdle();
+            return;
+        }
+        list.forEach((p) => popping.add(keyOf(p)));
+        const lowest = {};
+        list.forEach(([r, c]) => { lowest[c] = Math.max(lowest[c] === undefined ? -1 : lowest[c], r); });
+        const mine = Object.entries(lowest).map(([c, row]) => ({ c: Number(c), row }));
+        locks.push(...mine);
+        if (picked && cellBusy(picked)) setPicked(null);
+        animateClear(result);
+        renderLocks();
         setTimeout(() => {
-            if (id !== gameId) return;
-            const drops = applyClear(result);
-            render(drops);
-            setTimeout(() => runChain(drops, 1, id), CHAIN_WAIT_MS);
+            if (id !== gameId || finished) return;
+            list.forEach(([r, c]) => {
+                grid[r][c] = 0;
+                special[r][c] = null;
+                popping.delete(r * SIZE + c);
+            });
+            cleared += list.length;
+            mine.forEach((lock) => {
+                holes.add(lock.c);
+                (pendingLocks[lock.c] = pendingLocks[lock.c] || []).push(lock);
+            });
+            settleColumns(step);
         }, POP_MS);
     }
 
-    // Every touching pair (row or column) making 10 anywhere on the board. These never stay:
-    // they pop after each fall (chains), and the board starts without any. A joker only
-    // matches through a swap (next to one, everything would make 10).
+    // Lets the columns with gaps fall (new numbers fill the top), unless something in a column
+    // is still popping or being swapped: that column falls once it is done.
+    function settleColumns(step) {
+        const id = gameId;
+        const ready = [...holes].filter((c) => {
+            for (let r = 0; r < SIZE; r++) {
+                const k = r * SIZE + c;
+                if (popping.has(k) || swapping.has(k)) return false;
+            }
+            return true;
+        });
+        if (!ready.length) {
+            renderLocks();
+            checkIdle();
+            return;
+        }
+        ready.forEach((c) => holes.delete(c));
+        const drops = applyGravity(ready);
+        const touched = [];
+        ready.forEach((c) => { for (let r = 0; r < SIZE; r++) touched.push([r, c]); });
+        renderCells(touched, drops);
+        const landing = ready.flatMap((c) => pendingLocks[c] || []);
+        ready.forEach((c) => { pendingLocks[c] = []; });
+        renderLocks();
+        setTimeout(() => {
+            if (id !== gameId || finished) return;
+            landing.forEach((lock) => {
+                const i = locks.indexOf(lock);
+                if (i >= 0) locks.splice(i, 1);
+            });
+            renderLocks();
+            chainCheck(step + 1);
+        }, CHAIN_WAIT_MS);
+    }
+
+    // Every touching pair (row or column) making 10 among the cells at rest. These never stay:
+    // they pop as soon as both have landed (chains), and the board starts without any. A joker
+    // only matches through a swap (next to one, everything would make 10).
     function findChainMatches() {
         const taken = new Set();
         const found = [];
-        const skip = (line) => line.some((p) => taken.has(keyOf(p)) || at(p) === JOKER);
+        const skip = (line) => line.some((p) => taken.has(keyOf(p)) || at(p) === JOKER || cellBusy(p));
         for (let r = SIZE - 1; r >= 0; r--) {
             for (let c = 0; c < SIZE; c++) {
                 if (grid[r][c] <= 0 || taken.has(r * SIZE + c)) continue;
@@ -792,41 +887,33 @@
         return found;
     }
 
-    function runChain(drops, step, id) {
-        if (finished || id !== gameId) return;
+    function chainCheck(step) {
+        if (finished) return;
         const matches = step <= 20 ? findChainMatches() : [];
-        if (!matches.length) {
-            settle(id);
+        if (matches.length) {
+            maxChain = Math.max(maxChain, step);
+            const union = matches.flatMap(({ line }) => line);
+            const result = resolveClear(union);
+            const feverMult = feverOn ? 2 : 1;
+            const base = matches.length * (PAIR_POINTS + 10);
+            const points = (base * step + result.extra.length * 15) * (result.stars ? 2 : 1) * feverMult;
+            score += points;
+            fx('onTenChain', { cells: union.map(cellEl), step, points });
+            banner(step === 1 ? '연쇄!' : `${step}연쇄!`, step >= 3 ? 3 : 2);
+            // The clock runs during chains now, so longer chains give a little back.
+            if (step >= 3) addTime(1);
+            addFever(Math.min(12, 4 * matches.length));
+            restartComboWindow();
+            launchClear(result, step);
             return;
         }
-        maxChain = Math.max(maxChain, step);
-        const union = matches.flatMap(({ line }) => line);
-        const result = resolveClear(union);
-        const feverMult = feverOn ? 2 : 1;
-        const base = matches.length * (PAIR_POINTS + 10);
-        const points = (base * step + result.extra.length * 15) * (result.stars ? 2 : 1) * feverMult;
-        score += points;
-        animateClear(result);
-        fx('onTenChain', { cells: union.map(cellEl), step, points });
-        banner(step === 1 ? '연쇄!' : `${step}연쇄!`, step >= 3 ? 3 : 2);
-        if (step >= 4) addTime(1);
-        addFever(Math.min(12, 4 * matches.length));
-
-        setTimeout(() => {
-            if (id !== gameId) return;
-            const next = applyClear(result);
-            render(next);
-            setTimeout(() => runChain(next, step + 1, id), CHAIN_WAIT_MS);
-        }, POP_MS);
+        checkIdle();
     }
 
-    // Everything has landed: hand control back, and shuffle if no swap can match any more.
-    function settle(id) {
-        if (finished || id !== gameId) return;
-        busy = false;
-        restartComboWindow();
-        clearHint();
-        render();
+    // Everything has landed: shuffle if no swap can match any more.
+    function checkIdle() {
+        if (finished || !isIdle()) return;
+        renderStats();
         checkStuck();
     }
 
@@ -851,9 +938,9 @@
 
     // Numbers (and their special marks) fall straight down into the gaps, and new random
     // numbers drop in from above to fill the top, so the board is always full.
-    function applyGravity() {
+    function applyGravity(columns) {
         const drops = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
-        for (let c = 0; c < SIZE; c++) {
+        for (const c of columns) {
             let write = SIZE - 1;
             const column = [];
             for (let r = SIZE - 1; r >= 0; r--) {
@@ -905,13 +992,12 @@
         const feverMult = feverOn ? 2 : 1;
         const points = Math.round(result.removed.length * 15 * comboMultiplier(combo) * (result.stars ? 2 : 1) * feverMult);
         score += points;
-        animateClear(result);
         fx('onTenChain', { cells: result.removed.map(cellEl), step: 3, points });
         banner(`🌈 ${value} 모두!`, 3);
         addTime(1);
         addFever(20);
         restartComboWindow();
-        popThenChain(result);
+        launchClear(result, 0);
     }
 
     // Mixes the numbers (keeping the shape) until some swap can match. False if it can't.
@@ -972,7 +1058,7 @@
 
     function toggleItem(type) {
         clearHint();
-        if (finished || busy || paused) return;
+        if (finished || paused) return;
         if (itemMode === type) {
             cancelItem();
             return;
@@ -991,7 +1077,7 @@
     }
 
     function useItemOn(p) {
-        if (!at(p)) return;
+        if (!at(p) || cellBusy(p)) return;
         const type = itemMode;
         if (type === 'joker' && at(p) === JOKER) return;
         items[type]--;
@@ -1003,17 +1089,14 @@
     }
 
     function useHammer(p) {
-        busy = true;
         const result = resolveClear([p]);
-        animateClear(result);
         fx('onTenItem', { type: 'hammer', cell: cellEl(p) });
         score += result.extra.length * 15 * (feverOn ? 2 : 1);
-        popThenChain(result);
+        launchClear(result, 0);
     }
 
     // Every cell with the same number pops (a joker picks the most common number).
     function useRainbow(p) {
-        busy = true;
         let value = at(p);
         if (value === JOKER) {
             const counts = {};
@@ -1029,23 +1112,23 @@
         const result = resolveClear(targets);
         const points = (result.removed.length * 15) * (result.stars ? 2 : 1) * (feverOn ? 2 : 1);
         score += points;
-        animateClear(result);
         fx('onTenItem', { type: 'rainbow', cell: cellEl(p) });
         fx('onTenChain', { cells: result.removed.map(cellEl), step: 2, points });
         banner(`🌈 ${value || ''} 모두!`, 3);
         addTime(1);
-        popThenChain(result);
+        launchClear(result, 0);
     }
 
     function useJoker(p) {
         special[p[0]][p[1]] = { type: 'joker', hp: 1, v: at(p) };
         grid[p[0]][p[1]] = JOKER;
         fx('onTenItem', { type: 'joker', cell: cellEl(p) });
-        render();
+        renderCells([p]);
+        renderStats();
         const cell = cellEl(p);
         cell.classList.add('tp-mix');
         setTimeout(() => cell.classList.remove('tp-mix'), 420);
-        checkStuck();
+        checkIdle();
     }
 
     // === Fever ===
@@ -1188,7 +1271,11 @@
         playMs = 0;
         lastBeep = 0;
         hintShown = false;
-        busy = false;
+        popping = new Set();
+        swapping = new Set();
+        locks = [];
+        holes = new Set();
+        pendingLocks = [];
         finished = false;
         paused = false;
         root.classList.remove('tp-paused');
