@@ -145,15 +145,22 @@
             tone(f * 2, 0.04, 0.18, { type: 'sine', gain: 0.22 });
             if (length >= 4) [N.C7, N.G6 * 2].forEach((x, i) => tone(x, 0.1 + i * 0.06, 0.12, { type: 'sine', gain: 0.1 }));
         },
-        // Drawing a path: a soft tick that climbs per cell; a bright "ding" the moment it makes 10.
+        // Drawing a path: a soft tick that climbs per cell; a bright "ding" the moment it makes 10,
+        // and a bigger two-note "di-ding" at 20.
         tenStep({ len, sum }) {
             if (sum === 10) {
                 tone(N.C7, 0, 0.14, { type: 'sine', gain: 0.22 });
                 tone(N.G6, 0.03, 0.12, { type: 'triangle', gain: 0.08 });
                 return;
             }
+            if (sum === 20) {
+                tone(N.G6, 0, 0.1, { type: 'sine', gain: 0.22 });
+                tone(N.C7, 0.08, 0.2, { type: 'sine', gain: 0.26 });
+                tone(N.C7 * 1.5, 0.08, 0.16, { type: 'triangle', gain: 0.08 });
+                return;
+            }
             const f = RHYTHM_NOTES[Math.min(len, RHYTHM_NOTES.length) - 1] / 2;
-            tone(f, 0, 0.05, { type: 'sine', gain: sum > 10 ? 0.08 : 0.14, slideTo: sum > 10 ? f * 0.8 : null });
+            tone(f, 0, 0.05, { type: 'sine', gain: sum > 20 ? 0.08 : 0.14, slideTo: sum > 20 ? f * 0.8 : null });
         },
         // Chain: a quick rising arpeggio that starts higher on every step.
         tenChain(step) {
@@ -712,7 +719,7 @@
 
         onTenStep({ len, sum }) {
             playSound('tenStep', { len, sum });
-            if (sum === 10) vibrate('tap');
+            if (sum === 10 || sum === 20) vibrate('tap');
         },
 
         onTenChain({ cells, step, points }) {

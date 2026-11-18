@@ -1,6 +1,6 @@
 // 합 10 지우기: a bonus game played on the board you just solved.
 // Draw an unbroken path (up/down/left/right, any shape: straight, ㄱ, ㄷ, ㄹ...) over numbers
-// that add up to 10. The path disappears and the numbers above fall down. Nothing new comes in.
+// that add up to 10 or 20 (20 is a "double ten" worth x1.5). The path disappears and the numbers above fall down. Nothing new comes in.
 //
 // Extras:
 // - Shape bonus: a straight run is the hardest to find, so it pays the most.
@@ -16,6 +16,10 @@
     const FEVER_MAX = 100;
     const SPECIALS = { star: 3, bomb: 2, ice: 2 };
     const BEST_KEY = 'sudoku-tenpop-best';
+    const TARGETS = [10, 20];       // a path clears when it adds up to one of these
+    const DOUBLE_MULT = 1.5;        // bonus for a 20
+    const isTarget = (sum, len) => len >= 2 && TARGETS.includes(sum);
+    const MAX_TARGET = Math.max(...TARGETS);
 
     // Points for one clear by how many cells it takes; longer paths are worth more.
     function basePoints(len) {
@@ -222,12 +226,12 @@
         return grid.reduce((sum, row) => sum + row.reduce((a, v) => a + v, 0), 0);
     }
 
-    // Is there any unbroken path (2+ cells) adding up to exactly 10?
+    // Is there any unbroken path (2+ cells) adding up to exactly 10 or 20?
     function hasMove(g = grid) {
         const seen = new Uint8Array(SIZE * SIZE);
         const walk = (r, c, sum, len) => {
-            if (sum === 10) return len >= 2;
-            if (sum > 10) return false;
+            if (isTarget(sum, len)) return true;
+            if (sum >= MAX_TARGET) return false;
             for (const [dr, dc] of NEIGHBORS) {
                 const rr = r + dr;
                 const cc = c + dc;
@@ -332,7 +336,7 @@
             return;
         }
         const sum = sel.reduce((a, p) => a + at(p), 0);
-        const state = sum === 10 && sel.length >= 2 ? 'ok' : sum > 10 ? 'over' : '';
+        const state = isTarget(sum, sel.length) ? 'ok' : sum > MAX_TARGET ? 'over' : '';
         sel.forEach((p) => {
             const cell = cellEl(p);
             cell.classList.add('tp-sel');
@@ -347,7 +351,10 @@
         }
         const expr = sel.length > 6 ? `${sel.length}칸` : sel.map(at).join(' + ');
         const shape = shapeOf(sel);
-        const tag = sum === 10 && shape.mult > 1 ? ` · ${shape.name} ×${shape.mult}` : '';
+        const tags = [];
+        if (state === 'ok' && sum === 20) tags.push(`더블 텐 ×${DOUBLE_MULT}`);
+        if (state === 'ok' && shape.mult > 1) tags.push(`${shape.name} ×${shape.mult}`);
+        const tag = tags.length ? ` · ${tags.join(' · ')}` : '';
         setHint(`${expr} = ${sum}${tag}`, state === 'ok' ? 'ok' : state === 'over' ? 'warn' : '');
     }
 
@@ -362,7 +369,7 @@
                 text = shufflesLeft > 0 ? '막혔어요! 셔플로 섞어 보세요' : '더 지울 수 있는 칸이 없어요';
                 tone = 'warn';
             } else {
-                text = '이어진 칸을 그려서 합 10을 만드세요 · 일자는 ×1.5';
+                text = '이어진 칸을 그려서 합 10 또는 20을 만드세요';
             }
         }
         hintEl.textContent = text;
@@ -482,7 +489,7 @@
     // === Moves ===
     function tryClear(path) {
         const sum = path.reduce((a, p) => a + at(p), 0);
-        if (path.length >= 2 && path.every((p) => at(p)) && sum === 10) {
+        if (path.every((p) => at(p)) && isTarget(sum, path.length)) {
             clearPath(path);
         } else {
             miss(path);
@@ -590,13 +597,16 @@
         const shape = shapeOf(path);
         const result = resolveClear(path);
         const feverMult = feverOn ? 2 : 1;
+        const isDouble = path.reduce((a, p) => a + at(p), 0) === 20;
         const points = Math.round(basePoints(path.length) * shape.mult * comboMultiplier(combo) *
+            (isDouble ? DOUBLE_MULT : 1) *
             (result.stars ? 2 : 1) * feverMult) + result.extra.length * 15 * feverMult;
         score += points;
 
         animateClear(result);
         fx('onTenClear', { cells: path.map(cellEl), combo, points, length: path.length, star: result.stars > 0, fever: feverOn });
         if (result.stars) banner('★ 점수 2배!', 2);
+        else if (isDouble) banner('더블 텐!', 2);
         else if (combo >= 3 && combo % 5 === 0) banner(`${combo} COMBO!`, combo >= 10 ? 3 : 2);
         else if (combo === 3) banner('3 COMBO!', 1);
         else if (shape.name === '일자' && path.length >= 4) banner(`일자 ${path.length}칸!`, 2);
