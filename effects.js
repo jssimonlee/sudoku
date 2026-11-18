@@ -171,6 +171,22 @@
             [N.C6, N.E6, N.G6, N.C7].forEach((f, i) => tone(f, i * 0.07, 0.2, { type: 'square', gain: 0.12 }));
             tone(N.C7 * 1.5, 0.3, 0.5, { type: 'sine', gain: 0.18 });
         },
+        // Last five seconds: a clock tick that gets higher as time runs out.
+        tenTick(sec) {
+            const f = 880 + (5 - sec) * 110;
+            tone(f, 0, 0.06, { type: 'square', gain: 0.1 });
+        },
+        // An item was won: a little "ta-da".
+        tenItemGet() {
+            [N.G5, N.C6, N.E6, N.G6].forEach((f, i) => tone(f, i * 0.05, 0.14, { type: 'triangle', gain: 0.24 }));
+        },
+        tenSwap() {
+            tone(N.E6, 0, 0.08, { type: 'sine', gain: 0.2, slideTo: N.C6 });
+            tone(N.C6, 0.07, 0.1, { type: 'sine', gain: 0.2, slideTo: N.E6 });
+        },
+        tenJoker() {
+            [N.C6, N.G6, N.E6, N.C7].forEach((f, i) => tone(f, i * 0.06, 0.16, { type: 'sine', gain: 0.2 }));
+        },
         tenMiss() {
             tone(200, 0, 0.12, { type: 'triangle', gain: 0.25, slideTo: 140 });
         },
@@ -741,6 +757,28 @@
                 const { x, y } = center(cell);
                 burst(x, y, 14, 4.5, ['#f97316', '#ef4444', '#fbbf24', '#78350f']);
             });
+        },
+
+        onTenTick({ sec }) {
+            playSound('tenTick', sec);
+        },
+
+        onTenItemGet() {
+            playSound('tenItemGet');
+            vibrate('tap');
+        },
+
+        onTenItem({ type, cell }) {
+            if (type === 'hammer') {
+                playSound('break');
+                vibrate('break');
+            } else {
+                playSound(type === 'swap' ? 'tenSwap' : 'tenJoker');
+                vibrate('tap');
+            }
+            if (!settings.boardFx || !cell) return;
+            const { x, y } = center(cell);
+            burst(x, y, type === 'hammer' ? 18 : 10, type === 'hammer' ? 4.5 : 3, type === 'hammer' ? ['#94a3b8', '#64748b', '#f59e0b', '#fbbf24'] : COLORS);
         },
 
         onTenFever({ on }) {
