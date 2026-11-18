@@ -134,6 +134,23 @@
             tone(1800, 0, 0.03, { type: 'square', gain: 0.05 });
             tone(i === 0 ? N.C6 : N.E6, 0.06, 0.3, { type: 'triangle', gain: 0.18 });
         },
+        // --- 합 10 지우기 (tenpop.js) ---
+        tenPick() {
+            tone(N.G5 * 1.5, 0, 0.05, { type: 'sine', gain: 0.18 });
+        },
+        // A bubbly "pop" that climbs with the combo; longer runs add a sparkle on top.
+        tenClear({ combo, length }) {
+            const f = RHYTHM_NOTES[Math.min(Math.max(combo, 1), RHYTHM_NOTES.length) - 1] / 2;
+            tone(f, 0, 0.12, { type: 'triangle', gain: 0.4, slideTo: f * 1.5 });
+            tone(f * 2, 0.04, 0.18, { type: 'sine', gain: 0.22 });
+            if (length >= 4) [N.C7, N.G6 * 2].forEach((x, i) => tone(x, 0.1 + i * 0.06, 0.12, { type: 'sine', gain: 0.1 }));
+        },
+        tenMiss() {
+            tone(200, 0, 0.12, { type: 'triangle', gain: 0.25, slideTo: 140 });
+        },
+        tenShuffle() {
+            [N.E6, N.C6, N.G5, N.C6, N.E6].forEach((f, i) => tone(f, i * 0.04, 0.08, { type: 'sine', gain: 0.16 }));
+        },
         unit(count) {
             const notes = count >= 2 ? [N.C6, N.E6, N.G6, N.C7] : [N.G5, N.C6, N.E6];
             notes.forEach((f, i) => tone(f, 0.05 + i * 0.06, 0.22, { type: 'triangle', gain: 0.32 }));
@@ -667,6 +684,39 @@
                     vibrate('stamp');
                 }, delay + i * step + 120);
             }
+        },
+
+        // --- 합 10 지우기 (tenpop.js) ---
+        onTenPick() {
+            playSound('tenPick');
+        },
+
+        onTenClear({ cells, combo, points, length }) {
+            playSound('tenClear', { combo, length });
+            vibrate(combo >= 5 || length >= 5 ? 3 : 'tap');
+            if (!settings.boardFx || !cells || !cells.length) return;
+            const palette = combo >= 5 ? COLORS : combo >= 3 ? COLORS.concat(BOARD_COLORS) : BOARD_COLORS;
+            cells.forEach((cell) => {
+                const { x, y } = center(cell);
+                burst(x, y, combo >= 3 ? 10 : 6, combo >= 3 ? 3.6 : 2.8, palette);
+            });
+            const tier = combo >= 8 ? 4 : combo >= 5 ? 3 : combo >= 3 ? 2 : 1;
+            floatText(`+${points}`, cells[Math.floor(cells.length / 2)], tier);
+        },
+
+        onTenMiss() {
+            playSound('tenMiss');
+            vibrate('tap');
+        },
+
+        onTenShuffle() {
+            playSound('tenShuffle');
+        },
+
+        onTenEnd({ perfect, record }) {
+            playSound('win');
+            vibrate('win');
+            if (settings.boardFx && !reducedMotion) confetti(perfect || record ? 170 : 70);
         },
 
         onWin() {

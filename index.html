@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <!-- FontAwesome for Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="style.css?v=20261117f">
+    <link rel="stylesheet" href="style.css?v=20261118b">
 </head>
 
 <body>
@@ -91,7 +91,13 @@
                         <div class="result-stamps" id="overlay-stamps" aria-live="polite"></div>
                         <!-- Win only: this game's numbers and personal bests -->
                         <div class="result-stats" id="overlay-stats"></div>
-                        <button id="overlay-btn" class="primary-btn">새 게임 시작</button>
+                        <div class="overlay-actions">
+                            <button id="overlay-btn" class="primary-btn">새 게임 시작</button>
+                            <!-- Win only: bonus game "합 10 지우기" on the solved board (tenpop.js) -->
+                            <button id="overlay-bonus-btn" class="bonus-btn" type="button" hidden>
+                                <i class="fas fa-bolt"></i> 합 10 지우기
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -304,13 +310,14 @@
             </div>
         </main>
     </div>
-    <script src="stats.js?v=20261117f"></script>
-    <script src="effects.js?v=20261117f"></script>
-    <script src="combo.js?v=20261117f"></script>
-    <script src="leaderboard-config.js?v=20261117f"></script>
-    <script src="leaderboard.js?v=20261117f"></script>
-    <script src="script.js?v=20261117f"></script>
-    <script src="daily-calendar.js?v=20261117f"></script>
+    <script src="stats.js?v=20261118b"></script>
+    <script src="effects.js?v=20261118b"></script>
+    <script src="combo.js?v=20261118b"></script>
+    <script src="leaderboard-config.js?v=20261118b"></script>
+    <script src="leaderboard.js?v=20261118b"></script>
+    <script src="script.js?v=20261118b"></script>
+    <script src="daily-calendar.js?v=20261118b"></script>
+    <script src="tenpop.js?v=20261118b"></script>
 </body>
 
 </html>

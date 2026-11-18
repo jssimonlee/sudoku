@@ -86,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const overlayBtn = document.getElementById('overlay-btn');
     const overlayStats = document.getElementById('overlay-stats');
     const overlayStamps = document.getElementById('overlay-stamps');
+    const overlayBonusBtn = document.getElementById('overlay-bonus-btn');
     const pauseOverlay = document.getElementById('pause-overlay');
     const pauseResumeBtn = document.getElementById('pause-resume-btn');
 
@@ -268,6 +269,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         initGame();
     });
+    // Bonus game on the board that was just solved (tenpop.js).
+    if (overlayBonusBtn) {
+        overlayBonusBtn.addEventListener('click', () => {
+            if (window.TenPop) window.TenPop.open(solution.map((row) => row.slice()));
+        });
+    }
 
     // Daily calendar (daily-calendar.js) starts the puzzle of the date that was tapped.
     window.SudokuGame = {
@@ -1008,6 +1015,7 @@ document.addEventListener('DOMContentLoaded', () => {
         overlayContent.classList.remove('win-state', 'error-state');
         if (overlayStats) overlayStats.replaceChildren();
         if (overlayStamps) overlayStamps.replaceChildren();
+        if (overlayBonusBtn) overlayBonusBtn.hidden = !isWin || !window.TenPop;
 
         if (isWin) {
             emitFx('onWin');
