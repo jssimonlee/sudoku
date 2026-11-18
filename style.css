@@ -3367,6 +3367,13 @@ body.tp-open {
     overflow: hidden;
 }
 
+/* These layers set their own display, which would beat the hidden attribute and leave an
+   invisible full-screen layer swallowing every tap. */
+.tp-screen[hidden],
+.tp-result[hidden] {
+    display: none !important;
+}
+
 .tp-screen {
     position: fixed;
     inset: 0;
