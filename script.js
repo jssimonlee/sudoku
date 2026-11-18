@@ -68,6 +68,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let dailyPractice = false;   // that day's puzzle was already cleared: replay, nothing is recorded
     let dailyChoice = null;      // an earlier date picked in the calendar (null = today's puzzle)
     let lastRegularDifficulty = 'medium';
+    let playingDifficulty = 'medium'; // what the select shows for the game in progress
+    const TENPOP = 'tenpop';          // list entry that opens the 합 10 지우기 bonus game
     let rand = Math.random;      // swapped for a seeded generator while building the daily puzzle
 
     const numButtons = document.querySelectorAll('.num-btn');
@@ -186,6 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (Object.prototype.hasOwnProperty.call(DIFFICULTY_SETTINGS, saved.difficulty)) {
             difficultySelect.value = saved.difficulty;
         }
+        playingDifficulty = difficultySelect.value;
         dailyDate = saved.difficulty === DAILY ? saved.dailyDate : null;
         dailyChoice = dailyDate && !isTodayDaily() ? dailyDate : null;
         dailyPractice = Boolean(dailyDate) && stats.daily.isCleared(dailyDate);
@@ -255,10 +258,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // === Event Listeners ===
     difficultySelect.addEventListener('change', () => {
+        // "⚡ 합 10" opens the bonus game on random numbers; the Sudoku in progress stays
+        // as it is (paused) and the list goes back to its level.
+        if (difficultySelect.value === TENPOP) {
+            difficultySelect.value = playingDifficulty;
+            openTenPopRandom();
+            return;
+        }
         dailyChoice = null;   // "Daily" in the list always means today's puzzle
         saveDifficulty();
         initGame();
     });
+
+    function openTenPopRandom() {
+        if (!window.TenPop) return;
+        if (canPlay()) togglePause();
+        const randomBoard = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => 1 + Math.floor(Math.random() * 9)));
+        window.TenPop.open(randomBoard);
+    }
     btnNewGame.addEventListener('click', initGame);
     overlayBtn.addEventListener('click', () => {
         // After the daily puzzle, "new puzzle" goes back to the regular level.
@@ -562,6 +579,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (difficultySelect.value !== DAILY || !isPlayableDailyDate(dailyChoice)) dailyChoice = null;
         dailyDate = stats && difficultySelect.value === DAILY ? (dailyChoice || stats.today()) : null;
         if (!dailyDate && difficultySelect.value === DAILY) difficultySelect.value = lastRegularDifficulty;
+        playingDifficulty = difficultySelect.value;
         // Time already spent carries over for today's puzzle only.
         const dailyState = isTodayDaily() ? stats.daily.get() : null;
         dailyPractice = Boolean(dailyDate) && stats.daily.isCleared(dailyDate);
