@@ -8,6 +8,7 @@
 -- (the Worker trims everything below 10th right after an insert).
 --   board: normal-<difficulty> | combo-time-<difficulty> | combo-score-<difficulty>
 --          | daily-<YYYY-MM-DD> (daily puzzle; only today's board is served, old ones just stay)
+--          | tenpop-all (합 10 지우기 bonus game: score, time_sec = seconds played)
 --          difficulty = easy | medium | hard | expert
 CREATE TABLE IF NOT EXISTS sudoku_scores (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -15,7 +16,7 @@ CREATE TABLE IF NOT EXISTS sudoku_scores (
     initials   TEXT    NOT NULL,          -- 3 chars, A-Z 0-9
     time_sec   INTEGER NOT NULL,
     mistakes   INTEGER NOT NULL DEFAULT 0,
-    score      INTEGER,                   -- combo score (combo boards only)
+    score      INTEGER,                   -- combo score / 합 10 score (score boards only)
     created_at INTEGER NOT NULL           -- unix seconds
 );
 

@@ -17,8 +17,12 @@
     const WIN_MAX_AGE = 7 * 24 * 60 * 60 * 1000;  // win checks may use an older cache
     const DIFFICULTIES = ['easy', 'medium', 'hard', 'expert'];
     const DIFF_LABEL = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
-    const KIND_LABEL = { normal: '일반', 'combo-time': '콤보 시간', 'combo-score': '콤보 점수', daily: '오늘의 퍼즐' };
+    const KIND_LABEL = { normal: '일반', 'combo-time': '콤보 시간', 'combo-score': '콤보 점수', daily: '오늘의 퍼즐', tenpop: '합 10 지우기' };
     const DAILY = 'daily';
+    // 합 10 지우기 has one board for everyone: tenpop-all, ranked by score.
+    const TENPOP = 'tenpop';
+    const TENPOP_SLOT = 'all';
+    const SCORE_KINDS = new Set(['combo-score', TENPOP]);
     const ERROR_TEXT = {
         rate_limited: '잠시 후 다시 시도해 주세요.',
         bad_initials: '이니셜은 영문·숫자 3글자예요.',
@@ -26,7 +30,7 @@
         turnstile_failed: '봇 확인에 실패했어요. 다시 시도해 주세요.',
         forbidden_origin: '이 주소에서는 등록할 수 없어요.',
         bad_time: '기록이 비정상적으로 빨라 등록할 수 없어요.',
-        bad_score: '콤보 점수가 올바르지 않아 등록할 수 없어요.',
+        bad_score: '점수가 올바르지 않아 등록할 수 없어요.',
         bad_date: '날짜가 바뀌어 오늘의 퍼즐 기록을 등록할 수 없어요.',
         bad_mode: '순위표 서버가 아직 오늘의 퍼즐을 지원하지 않아요.'
     };
@@ -54,7 +58,7 @@
     const switchIcon = switchBtn && switchBtn.querySelector('i');
 
     if (!apiBase || !modal) {
-        window.Leaderboard = { onWin() {} };
+        window.Leaderboard = { onWin() {}, onTenPopEnd() {}, showTenPop: null };
         return;
     }
     toggleBtn.hidden = false;
@@ -79,14 +83,17 @@
 
     function recordKinds(record) {
         if (record.mode === DAILY) return [DAILY];
+        if (record.mode === TENPOP) return [TENPOP];
         return record.mode === 'combo' ? ['combo-time', 'combo-score'] : ['normal'];
     }
 
     function recordSlot(record) {
+        if (record.mode === TENPOP) return TENPOP_SLOT;
         return record.mode === DAILY ? record.date : record.difficulty;
     }
 
     function slotLabel(kind, slot) {
+        if (kind === TENPOP) return '';
         if (kind !== DAILY) return DIFF_LABEL[slot];
         const [, month, day] = slot.split('-');
         // The daily puzzle alternates Medium / Hard by date (stats.js).
@@ -97,9 +104,9 @@
 
     // Negative when a ranks above b. A new record has no createdAt yet, so it loses ties.
     function compare(kind, a, b) {
-        if (kind === 'combo-score' && a.score !== b.score) return b.score - a.score;
+        if (SCORE_KINDS.has(kind) && a.score !== b.score) return b.score - a.score;
         if (a.time !== b.time) return a.time - b.time;
-        if (kind !== 'combo-score' && a.mistakes !== b.mistakes) return a.mistakes - b.mistakes;
+        if (!SCORE_KINDS.has(kind) && a.mistakes !== b.mistakes) return a.mistakes - b.mistakes;
         return (a.createdAt ?? Infinity) - (b.createdAt ?? Infinity);
     }
 
@@ -155,7 +162,7 @@
     }
 
     function recordText(kind, entry) {
-        return kind === 'combo-score' ? `${entry.score.toLocaleString()}점` : formatTime(entry.time);
+        return SCORE_KINDS.has(kind) ? `${entry.score.toLocaleString()}점` : formatTime(entry.time);
     }
 
     // === Modal ===
@@ -200,6 +207,13 @@
             });
             boardSelect.appendChild(group);
         });
+        const tenGroup = document.createElement('optgroup');
+        tenGroup.label = '보너스 게임';
+        const tenOpt = document.createElement('option');
+        tenOpt.value = boardKey(TENPOP, TENPOP_SLOT);
+        tenOpt.textContent = `⚡ ${KIND_LABEL[TENPOP]}`;
+        tenGroup.appendChild(tenOpt);
+        boardSelect.appendChild(tenGroup);
     }
     buildBoardSelect();
 
@@ -231,7 +245,7 @@
     // Always 10 rows like an arcade high-score table; empty places show "---".
     function renderView(boards) {
         boardSelect.value = boardKey(view.kind, view.difficulty);
-        headMain.textContent = view.kind === 'combo-score' ? '점수' : '시간';
+        headMain.textContent = SCORE_KINDS.has(view.kind) ? '점수' : '시간';
         renderSwitch();
 
         const mine = view.highlights[boardKey(view.kind, view.difficulty)] || null;
@@ -248,12 +262,14 @@
             li.append(
                 makeCell('lb-rank', i < 3 ? MEDALS[i] : String(i + 1)),
                 makeCell('lb-name', row ? row.initials : '---'),
-                makeCell('lb-main', row ? recordText(view.kind, row) : (view.kind === 'combo-score' ? '-' : '--:--'))
+                makeCell('lb-main', row ? recordText(view.kind, row) : (SCORE_KINDS.has(view.kind) ? '-' : '--:--'))
             );
             if (row) {
-                li.title = view.kind === 'combo-score'
-                    ? `시간 ${formatTime(row.time)} · 실수 ${row.mistakes}`
-                    : `실수 ${row.mistakes}`;
+                li.title = view.kind === TENPOP
+                    ? `플레이 ${formatTime(row.time)}`
+                    : view.kind === 'combo-score'
+                        ? `시간 ${formatTime(row.time)} · 실수 ${row.mistakes}`
+                        : `실수 ${row.mistakes}`;
             }
             table.appendChild(li);
         }
@@ -288,6 +304,7 @@
 
     function splitBoardKey(key) {
         if (key.startsWith(`${DAILY}-`)) return [DAILY, key.slice(DAILY.length + 1)];
+        if (key === boardKey(TENPOP, TENPOP_SLOT)) return [TENPOP, TENPOP_SLOT];
         const d = DIFFICULTIES.find((diff) => key.endsWith(`-${diff}`));
         return d ? [key.slice(0, -(d.length + 1)), d] : [null, null];
     }
@@ -413,7 +430,7 @@
         qualifyList.replaceChildren();
         qualifying.forEach(({ kind, rank }) => {
             const li = document.createElement('li');
-            li.textContent = `${KIND_LABEL[kind]} ${slotLabel(kind, recordSlot(record))} · ${recordText(kind, record)} · 예상 ${rank}위`;
+            li.textContent = `${`${KIND_LABEL[kind]} ${slotLabel(kind, recordSlot(record))}`.trim()} · ${recordText(kind, record)} · 예상 ${rank}위`;
             qualifyList.appendChild(li);
         });
         let saved = '';
@@ -519,5 +536,30 @@
         openSubmit(record, qualifying);
     }
 
-    window.Leaderboard = { onWin };
+    // === Called by tenpop.js when a 합 10 지우기 game ends ===
+    // record: { score, time } (time = whole seconds played).
+    async function onTenPopEnd({ score, time } = {}) {
+        if (!Number.isInteger(score) || score < 1 || !Number.isInteger(time) || time < 1) return;
+        const record = { mode: TENPOP, score, time };
+        let cache;
+        try {
+            cache = await getBoards(WIN_MAX_AGE, boardKey(TENPOP, TENPOP_SLOT));
+        } catch {
+            return; // offline and no cache: skip quietly
+        }
+        const rank = expectedRank(TENPOP, cache.boards[boardKey(TENPOP, TENPOP_SLOT)] || [], record);
+        if (rank === null) return;
+        openSubmit(record, [{ kind: TENPOP, rank }]);
+    }
+
+    // The 🏆 button on the 합 10 result card.
+    function showTenPop() {
+        form.hidden = true;
+        resultEl.hidden = true;
+        openModal();
+        closeBtn.focus();
+        showView(TENPOP, TENPOP_SLOT, { highlights: {} });
+    }
+
+    window.Leaderboard = { onWin, onTenPopEnd, showTenPop };
 })();

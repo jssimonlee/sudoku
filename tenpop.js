@@ -20,8 +20,9 @@
 // - Fever: quick matches fill the fever gauge; when it is full, points are doubled for 10 seconds.
 // - Special cells: ★ doubles that match, 💣 also blows up its four neighbours (a few also drop in
 //   with the new numbers). Ice that needed two hits was dropped: it only got in the way.
-// - Items (won by combos and fever): 🔨 breaks one cell, 🌈 pops every copy of a number,
-//   🃏 turns a cell into a joker that counts as whatever number makes the match.
+// - Rewards (every 4th combo and each fever): a 🃏 joker, 💣 bomb or 🌈 rainbow piece appears
+//   right on the board, ready to swap. (A bar of items to tap was dropped: with the clock
+//   running, looking down at buttons broke the flow.)
 // - Stuck boards are shuffled automatically; the 💡 button (3 per game) shows a good swap.
 (() => {
     const SIZE = 9;
@@ -39,12 +40,8 @@
     const START_TIME_MS = 60000;
     const MAX_TIME_MS = 99000;
     const JOKER = -1;               // grid value of a joker cell
-    const ITEM_MAX = 3;
-    const ITEMS = {
-        hammer: { icon: '🔨', name: '망치', hint: '깰 칸을 누르세요' },
-        rainbow: { icon: '🌈', name: '무지개', hint: '누른 숫자와 같은 숫자를 모두 터뜨립니다' },
-        joker: { icon: '🃏', name: '조커', hint: '조커로 바꿀 칸을 누르세요 (아무 숫자로 쓰임)' }
-    };
+    // Reward pieces dropped onto the board, with their odds.
+    const REWARDS = [['joker', 0.4], ['bomb', 0.35], ['rainbow', 0.25]];
     const AXES = [[0, 1], [1, 0]];
     const NEIGHBORS = [[0, 1], [1, 0], [0, -1], [-1, 0]];
 
@@ -95,8 +92,6 @@
     let fever = 0;
     let feverOn = false;
     let feverTimer = null;
-    let items = { hammer: 1, rainbow: 0, joker: 1 };
-    let itemMode = null;    // 'hammer' | 'rainbow' | 'joker' while an item is being used
     let timeLeft = START_TIME_MS;
     let playMs = 0;
     let timerId = null;
@@ -122,7 +117,7 @@
 
     // === DOM (built once, on first open) ===
     let root, boardEl, cells, timeEl, timeBox, scoreEl, comboEl, chainEl, gaugeEl,
-        feverBar, feverFill, hintEl, itemBtns, hintBtn, finishBtn, resultEl, wrapEl, pauseEl, rushEl;
+        feverBar, feverFill, hintEl, hintBtn, finishBtn, resultEl, wrapEl, pauseEl, rushEl;
 
     function el(tag, className, text) {
         const node = document.createElement(tag);
@@ -233,21 +228,6 @@
         hintEl = el('p', 'tp-hint');
         hintEl.setAttribute('aria-live', 'polite');
 
-        const itemBar = el('div', 'tp-items');
-        itemBtns = {};
-        Object.entries(ITEMS).forEach(([type, info]) => {
-            const btn = el('button', 'tp-item');
-            btn.type = 'button';
-            btn.dataset.item = type;
-            btn.setAttribute('aria-label', info.name);
-            const icon = el('span', 'tp-item-icon');
-            setArtText(icon, info.icon);
-            btn.append(icon, el('span', 'tp-item-name', info.name), el('b', 'tp-item-count', '0'));
-            btn.addEventListener('click', () => toggleItem(type));
-            itemBar.append(btn);
-            itemBtns[type] = btn;
-        });
-
         const actions = el('div', 'tp-actions');
         hintBtn = el('button', 'tp-btn tp-btn-hint');
         hintBtn.type = 'button';
@@ -257,7 +237,7 @@
         finishBtn.addEventListener('click', () => finish('quit'));
         actions.append(hintBtn, finishBtn);
 
-        inner.append(head, hud, gauge, feverBar, wrapEl, hintEl, itemBar, actions);
+        inner.append(head, hud, gauge, feverBar, wrapEl, hintEl, actions);
         root.append(inner, resultEl);
         document.body.append(root);
 
@@ -283,7 +263,7 @@
         boardEl.addEventListener('touchcancel', () => { press = null; });
         document.addEventListener('keydown', (e) => {
             if (root.hidden || e.key !== 'Escape') return;
-            if (itemMode) cancelItem(); else close();
+            close();
         });
         // Leaving the window or the app pauses the game, like the Sudoku does.
         window.addEventListener('blur', pause);
@@ -433,17 +413,8 @@
         finishBtn.disabled = finished;
         setArtText(hintBtn, `💡 힌트 ${hintsLeft}`);
         hintBtn.disabled = finished || hintsLeft <= 0;
-        renderItems();
         renderFever();
         renderTime();
-    }
-
-    function renderItems() {
-        Object.entries(itemBtns).forEach(([type, btn]) => {
-            btn.querySelector('.tp-item-count').textContent = String(items[type]);
-            btn.disabled = finished || (items[type] <= 0 && itemMode !== type);
-            btn.classList.toggle('active', itemMode === type);
-        });
     }
 
     function renderTime() {
@@ -461,9 +432,6 @@
         if (text === undefined) {
             if (finished) {
                 text = '';
-            } else if (itemMode) {
-                text = `${ITEMS[itemMode].icon} ${ITEMS[itemMode].hint}`;
-                tone = 'item';
             } else if (feverOn) {
                 text = '🔥 FEVER! 점수 2배';
                 tone = 'hot';
@@ -518,7 +486,6 @@
     // 💡: the two cells of a good swap wiggle until the next move.
     function useHint() {
         if (finished || paused || hintsLeft <= 0 || hintShown) return;
-        if (itemMode) cancelItem();
         const swap = findSwap();
         if (!swap) return;
         hintsLeft--;
@@ -552,10 +519,6 @@
         if (!fromTouch) {
             e.preventDefault();
             try { boardEl.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
-        }
-        if (itemMode) {
-            useItemOn(p);
-            return;
         }
         if (!at(p)) {
             setPicked(null);
@@ -749,7 +712,7 @@
 
         // With the board always full, matches come easily: only bigger moves buy time.
         addTime((cross ? 1 : 0) + (matches.length >= 3 ? 1 : 0));
-        if (combo >= 4 && combo % 4 === 0) giveItem();
+        if (combo >= 4 && combo % 4 === 0) giveReward();
         addFever(8 + 3 * Math.min(combo, 6) + (cross ? 8 : 0));
         restartComboWindow();
         launchClear(result, 0);
@@ -954,22 +917,10 @@
         checkStuck();
     }
 
-    // Items that can still do something: hammer / rainbow need a cell, a joker needs a number.
-    function usefulItems() {
-        const flat = grid.flat();
-        const anyCell = flat.some((v) => v);
-        const anyNumber = flat.some((v) => v > 0);
-        return (anyCell && (items.hammer > 0 || items.rainbow > 0)) || (anyNumber && items.joker > 0);
-    }
-
     function checkStuck() {
         if (finished) return;
         if (findSwap()) return;
         if (autoShuffle()) return;
-        if (usefulItems()) {
-            setHint('더 바꿀 곳이 없어요! 아이템을 써 보세요', 'warn');
-            return;
-        }
         setTimeout(() => finish('stuck'), 650);
     }
 
@@ -1190,94 +1141,36 @@
         return false;
     }
 
-    // === Items ===
-    function giveItem(type) {
-        const pool = Object.keys(ITEMS).filter((t) => items[t] < ITEM_MAX);
-        if (!pool.length) return;
-        const pick = type && pool.includes(type) ? type : pool[Math.floor(Math.random() * pool.length)];
-        items[pick]++;
-        renderItems();
-        const btn = itemBtns[pick];
-        btn.classList.remove('tp-item-new');
-        void btn.offsetWidth;
-        btn.classList.add('tp-item-new');
-        setTimeout(() => btn.classList.remove('tp-item-new'), 900);
-        fx('onTenItemGet');
-    }
-
-    function toggleItem(type) {
-        clearHint();
-        if (finished || paused) return;
-        if (itemMode === type) {
-            cancelItem();
-            return;
-        }
-        if (items[type] <= 0) return;
-        itemMode = type;
-        setPicked(null);
-        renderItems();
-        setHint();
-    }
-
-    function cancelItem() {
-        itemMode = null;
-        renderItems();
-        setHint();
-    }
-
-    function useItemOn(p) {
-        if (!at(p) || cellBusy(p)) return;
-        const type = itemMode;
-        if (type === 'joker' && at(p) === JOKER) return;
-        items[type]--;
-        itemMode = null;
-        renderItems();
-        if (type === 'hammer') useHammer(p);
-        else if (type === 'rainbow') useRainbow(p);
-        else useJoker(p);
-    }
-
-    function useHammer(p) {
-        const result = resolveClear([p]);
-        fx('onTenItem', { type: 'hammer', cell: cellEl(p) });
-        score += result.extra.length * 15 * (feverOn ? 2 : 1);
-        launchClear(result, 0);
-    }
-
-    // Every cell with the same number pops (a joker picks the most common number).
-    function useRainbow(p) {
-        let value = at(p);
-        if (value === JOKER) {
-            const counts = {};
-            grid.flat().forEach((v) => { if (v > 0) counts[v] = (counts[v] || 0) + 1; });
-            value = Number(Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0]) || 0;
-        }
-        const targets = [];
+    // === Rewards ===
+    // A reward piece appears on a resting number cell: a 🃏 joker, a 💣 bomb or a 🌈 rainbow piece.
+    // If every cell is moving right now, it tries again a moment later.
+    function giveReward(tries = 0) {
+        if (finished) return;
+        const spots = [];
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
-                if (grid[r][c] === value || (r === p[0] && c === p[1])) targets.push([r, c]);
+                if (grid[r][c] > 0 && !special[r][c] && !cellBusy([r, c])) spots.push([r, c]);
             }
         }
-        const result = resolveClear(targets);
-        const points = (result.removed.length * 15) * (result.stars ? 2 : 1) * (feverOn ? 2 : 1);
-        score += points;
-        fx('onTenItem', { type: 'rainbow', cell: cellEl(p) });
-        fx('onTenChain', { cells: result.removed.map(cellEl), step: 2, points });
-        banner(`🌈 ${value || ''} 모두!`, 3);
-        addTime(1);
-        launchClear(result, 0);
-    }
-
-    function useJoker(p) {
-        special[p[0]][p[1]] = { type: 'joker', hp: 1, v: at(p) };
-        grid[p[0]][p[1]] = JOKER;
-        fx('onTenItem', { type: 'joker', cell: cellEl(p) });
+        if (!spots.length) {
+            if (tries < 8) setTimeout(() => giveReward(tries + 1), 400);
+            return;
+        }
+        const p = spots[Math.floor(Math.random() * spots.length)];
+        let roll = Math.random();
+        const type = (REWARDS.find(([, odds]) => (roll -= odds) < 0) || REWARDS[0])[0];
+        if (type === 'joker') {
+            special[p[0]][p[1]] = { type: 'joker', hp: 1, v: at(p) };
+            grid[p[0]][p[1]] = JOKER;
+        } else {
+            special[p[0]][p[1]] = { type, hp: 1 };
+        }
         renderCells([p]);
-        renderStats();
+        renderLocks();
         const cell = cellEl(p);
-        cell.classList.add('tp-mix');
-        setTimeout(() => cell.classList.remove('tp-mix'), 420);
-        checkIdle();
+        cell.classList.add('tp-made', 'tp-reward');
+        setTimeout(() => cell.classList.remove('tp-made', 'tp-reward'), 900);
+        fx('onTenItemGet');
     }
 
     // === Fever ===
@@ -1297,7 +1190,7 @@
         feverBar.classList.add('on');
         banner('🔥 FEVER!', 3);
         fx('onTenFever', { on: true });
-        giveItem();
+        giveReward();
         clearTimeout(feverTimer);
         feverEndsAt = performance.now() + FEVER_MS;
         feverTimer = setTimeout(endFever, FEVER_MS);
@@ -1327,7 +1220,6 @@
         paused = false;
         root.classList.remove('tp-paused');
         pauseEl.hidden = true;
-        itemMode = null;
         press = null;
         setPicked(null);
         clearHint();
@@ -1379,11 +1271,28 @@
         back.type = 'button';
         back.addEventListener('click', close);
         buttons.append(again, back);
+        const lb = window.Leaderboard;
+        if (lb && typeof lb.showTenPop === 'function') {
+            const rank = el('button', 'tp-btn tp-btn-ghost tp-btn-rank');
+            rank.type = 'button';
+            rank.innerHTML = '<i class="fas fa-trophy" aria-hidden="true"></i> TOP 10';
+            rank.addEventListener('click', () => lb.showTenPop());
+            buttons.append(rank);
+        }
         card.append(buttons);
         resultEl.append(card);
         resultEl.hidden = false;
         requestAnimationFrame(() => resultEl.classList.add('active'));
         if (cleared > 0) fx('onTenEnd', { perfect: false, record });
+        // Online TOP 10: asks for initials only if the score makes the board (after the stamp lands).
+        const id = gameId;
+        const finalScore = score;
+        const seconds = Math.max(1, Math.round(playMs / 1000));
+        if (lb && typeof lb.onTenPopEnd === 'function' && finalScore > 0) {
+            setTimeout(() => {
+                if (id === gameId && finished && root && !root.hidden) lb.onTenPopEnd({ score: finalScore, time: seconds });
+            }, record ? 1400 : 900);
+        }
     }
 
     // === Open / close ===
@@ -1414,8 +1323,6 @@
         maxChain = 0;
         cleared = 0;
         lastClearAt = 0;
-        items = { hammer: 1, rainbow: 0, joker: 1 };
-        itemMode = null;
         picked = null;
         press = null;
         timeLeft = START_TIME_MS;

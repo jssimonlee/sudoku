@@ -1,10 +1,12 @@
 // Sudoku TOP 10 leaderboard API (Cloudflare Worker + D1).
 //
-//   GET  /leaderboards  -> all 12 boards (top 10 each) in one response
+//   GET  /leaderboards  -> every board (top 10 each) in one response
 //   POST /submit        -> { mode, difficulty, time, mistakes, score, initials, turnstileToken? }
+//                          (mode 'tenpop': { mode, time, score, initials }, time = seconds played)
 //
 // Boards: normal-<d>, combo-time-<d>, combo-score-<d> for d in easy|medium|hard|expert,
-// plus daily-<YYYY-MM-DD>: the daily puzzle (same board for everyone, ranked by time).
+// plus daily-<YYYY-MM-DD>: the daily puzzle (same board for everyone, ranked by time),
+// plus tenpop-all: the 합 10 지우기 bonus game, ranked by score (then shorter play time).
 // Only today's daily board is served and accepts records; the day changes at midnight KST.
 // The client only submits when its cached boards say the record makes the top 10;
 // the Worker always re-checks against the live data, so the cache is never trusted.
@@ -13,6 +15,15 @@ const DIFFICULTIES = ['easy', 'medium', 'hard', 'expert'];
 const KINDS = ['normal', 'combo-time', 'combo-score'];
 const TOP_N = 10;
 const DAILY = 'daily';
+const TENPOP = 'tenpop';
+const TENPOP_KEY = 'tenpop-all';
+// 합 10 지우기: a game lasts seconds to many minutes. Even fever + rush + merged specials
+// stay well under this many points per second of play.
+const TENPOP_MAX_TIME = 2 * 60 * 60;
+const TENPOP_POINTS_PER_SEC = 5000;
+const TENPOP_POINTS_GRACE = 30000;
+// Boards ranked by score first.
+const SCORE_KINDS = new Set(['combo-score', TENPOP]);
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
 // Plausibility limits. A puzzle can't be solved faster than this (seconds).
@@ -113,7 +124,7 @@ async function submit(request, env, cors) {
         const inserts = targets.map(({ kind, key }) => env.DB
             .prepare('INSERT INTO sudoku_scores (board, initials, time_sec, mistakes, score, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)')
             .bind(key, entry.initials, entry.time, entry.mistakes,
-                kind === 'combo-score' ? entry.score : null, now));
+                SCORE_KINDS.has(kind) ? entry.score : null, now));
         // Keep only the top 10 of each touched board (runs in the same transaction).
         const trims = targets.map(({ kind, key }) => env.DB
             .prepare(`DELETE FROM sudoku_scores WHERE board = ?1 AND id NOT IN (
@@ -138,6 +149,15 @@ function validateEntry(body) {
     const { mode, difficulty, time, mistakes, score } = body;
     const initials = typeof body.initials === 'string' ? body.initials.trim().toUpperCase() : '';
 
+    if (mode === TENPOP) {
+        if (!Number.isInteger(time) || time < 1 || time > TENPOP_MAX_TIME) return { error: 'bad_time' };
+        if (!Number.isInteger(score) || score < 1 || score > time * TENPOP_POINTS_PER_SEC + TENPOP_POINTS_GRACE) {
+            return { error: 'bad_score' };
+        }
+        if (!INITIALS_RE.test(initials)) return { error: 'bad_initials' };
+        if (BLOCKED_INITIALS.has(initials)) return { error: 'blocked_initials' };
+        return { mode, difficulty: 'all', time, mistakes: 0, score, initials };
+    }
     if (mode !== 'normal' && mode !== 'combo' && mode !== DAILY) return { error: 'bad_mode' };
     if (!DIFFICULTIES.includes(difficulty)) return { error: 'bad_difficulty' };
     // The daily puzzle is always Medium-sized and only today's board takes records.
@@ -169,6 +189,7 @@ function dailyBoardKey() {
 // Boards a valid entry competes on: [{ kind, key }].
 function entryBoards(entry) {
     if (entry.mode === DAILY) return [{ kind: DAILY, key: dailyBoardKey() }];
+    if (entry.mode === TENPOP) return [{ kind: TENPOP, key: TENPOP_KEY }];
     const kinds = entry.mode === 'combo' ? ['combo-time', 'combo-score'] : ['normal'];
     return kinds.map((kind) => ({ kind, key: boardKey(kind, entry.difficulty) }));
 }
@@ -179,16 +200,16 @@ function boardKey(kind, difficulty) {
 }
 
 function orderBy(kind) {
-    return kind === 'combo-score'
+    return SCORE_KINDS.has(kind)
         ? 'score DESC, time_sec ASC, created_at ASC, id ASC'
         : 'time_sec ASC, mistakes ASC, created_at ASC, id ASC';
 }
 
 // Same order as orderBy(): negative when a ranks above b. Ties go to the earlier record.
 function compare(kind, a, b) {
-    if (kind === 'combo-score' && a.score !== b.score) return b.score - a.score;
+    if (SCORE_KINDS.has(kind) && a.score !== b.score) return b.score - a.score;
     if (a.time !== b.time) return a.time - b.time;
-    if (kind !== 'combo-score' && a.mistakes !== b.mistakes) return a.mistakes - b.mistakes;
+    if (!SCORE_KINDS.has(kind) && a.mistakes !== b.mistakes) return a.mistakes - b.mistakes;
     if (a.createdAt !== b.createdAt) return a.createdAt - b.createdAt;
     return a.id - b.id;
 }
@@ -209,6 +230,7 @@ async function loadBoards(env) {
     const boards = {};
     KINDS.forEach((kind) => DIFFICULTIES.forEach((d) => { boards[boardKey(kind, d)] = []; }));
     boards[dailyKey] = [];
+    boards[TENPOP_KEY] = [];
 
     for (const row of results) {
         if (!boards[row.board]) continue;
@@ -224,7 +246,9 @@ async function loadBoards(env) {
     for (const [key, list] of Object.entries(boards)) {
         const kind = key === dailyKey
             ? DAILY
-            : KINDS.find((k) => key.startsWith(`${k}-`) && DIFFICULTIES.includes(key.slice(k.length + 1)));
+            : key === TENPOP_KEY
+                ? TENPOP
+                : KINDS.find((k) => key.startsWith(`${k}-`) && DIFFICULTIES.includes(key.slice(k.length + 1)));
         list.sort((a, b) => compare(kind, a, b));
         boards[key] = list.slice(0, TOP_N);
     }
