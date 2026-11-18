@@ -3530,7 +3530,7 @@ body.tp-open {
     box-shadow: 0 1px 0 rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.06);
     font-size: clamp(1rem, 5vw, 1.45rem);
     font-weight: 700;
-    color: var(--text-initial);
+    color: var(--tp-number-color, var(--text-initial));
     font-variant-numeric: tabular-nums;
     cursor: pointer;
     transition: background 0.08s ease, transform 0.08s ease;
@@ -3543,11 +3543,11 @@ body.tp-open {
 }
 
 /* Partner colors: numbers that make 10 together share a hue (1-9, 2-8, 3-7, 4-6, 5) */
-.tp-v1, .tp-v9 { color: #2563eb; }
-.tp-v2, .tp-v8 { color: #059669; }
-.tp-v3, .tp-v7 { color: #c2410c; }
-.tp-v4, .tp-v6 { color: #7c3aed; }
-.tp-v5 { color: #1f2937; }   /* charcoal: the only non-colour number, so it never reads as 3·7 */
+.tp-v1, .tp-v9 { --tp-number-color: #2563eb; }
+.tp-v2, .tp-v8 { --tp-number-color: #059669; }
+.tp-v3, .tp-v7 { --tp-number-color: #c2410c; }
+.tp-v4, .tp-v6 { --tp-number-color: #7c3aed; }
+.tp-v5 { --tp-number-color: #1f2937; }   /* charcoal: the only non-colour number, so it never reads as 3·7 */
 
 .tp-cell.tp-sel {
     background: #dbeafe;
@@ -4416,4 +4416,39 @@ body.tp-open {
 .tp-result-sub > .tp-btn {
     flex: 1;
     min-width: 0;
+}
+
+.tp-color-toggle {
+    grid-column: 1 / -1;
+}
+
+.tp-color-toggle[aria-pressed="true"] {
+    background: #e8eef9;
+    border-color: #8196b7;
+    color: #203653;
+}
+
+.tp-colored-tiles .tp-board .tp-cell[class*="tp-v"] {
+    background-color: var(--tp-number-color);
+    color: white;
+}
+
+/* Keep the numeral legible on pastel artwork and the lightest (green) tile. */
+.tp-colored-tiles .tp-cell:is(.tp-star, .tp-bomb, .tp-line, .tp-rainbow, .tp-v2, .tp-v8) {
+    paint-order: stroke fill;
+    -webkit-text-stroke: 1.6px #34404b;
+}
+
+.tp-colored-tiles .tp-cell.tp-anchor,
+.tp-colored-tiles .tp-cell.tp-hinting {
+    outline: 2px solid white;
+    outline-offset: -2px;
+}
+
+.tp-colored-tiles :is(.tp-banner, .tp-rush),
+body.tp-open:has(.tp-colored-tiles) > .fx-float {
+    color: white;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 3px #263044;
+    text-shadow: 0 1px 2px #263044;
 }

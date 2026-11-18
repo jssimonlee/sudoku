@@ -36,6 +36,7 @@
     const SPECIALS = { star: 3, bomb: 2 };
     const SPAWN_STAR = 0.03;        // chance a new number drops in as ★
     const SPAWN_BOMB = 0.02;        // ... or as 💣
+    const TILE_COLOR_KEY = 'sudoku-tenpop-colored-tiles';
     const BEST_KEY = 'sudoku-tenpop-best';
     const START_TIME_MS = 60000;
     const MAX_TIME_MS = 99000;
@@ -237,6 +238,27 @@
         finishBtn.type = 'button';
         finishBtn.addEventListener('click', () => finish('quit'));
         actions.append(hintBtn, finishBtn);
+
+        const colorButton = el('button', 'tp-btn tp-btn-ghost tp-color-toggle');
+        colorButton.type = 'button';
+        colorButton.setAttribute('aria-label', '숫자 배경색');
+        function setTileColors(enabled) {
+            root.classList.toggle('tp-colored-tiles', enabled);
+            colorButton.setAttribute('aria-pressed', String(enabled));
+            colorButton.textContent = enabled ? '숫자 배경색 켜짐' : '숫자 배경색 꺼짐';
+        }
+
+        let coloredTiles = false;
+        try { coloredTiles = localStorage.getItem(TILE_COLOR_KEY) === 'true'; }
+        catch (e) { /* storage unavailable */ }
+        setTileColors(coloredTiles);
+        colorButton.addEventListener('click', () => {
+            const enabled = !root.classList.contains('tp-colored-tiles');
+            setTileColors(enabled);
+            try { localStorage.setItem(TILE_COLOR_KEY, String(enabled)); }
+            catch (e) { /* still works for the current session */ }
+        });
+        actions.append(colorButton);
 
         inner.append(head, hud, gauge, feverBar, wrapEl, hintEl, actions);
         root.append(inner, resultEl);
