@@ -3543,11 +3543,11 @@ body.tp-open {
 }
 
 /* Partner colors: numbers that make 10 together share a hue (1-9, 2-8, 3-7, 4-6, 5) */
-.tp-v1, .tp-v9 { --tp-number-color: #2563eb; }
-.tp-v2, .tp-v8 { --tp-number-color: #059669; }
-.tp-v3, .tp-v7 { --tp-number-color: #c2410c; }
-.tp-v4, .tp-v6 { --tp-number-color: #7c3aed; }
-.tp-v5 { --tp-number-color: #1f2937; }   /* charcoal: the only non-colour number, so it never reads as 3·7 */
+.tp-v1, .tp-v9 { --tp-number-color: #2563eb; --tp-sherbet-bg: #d7e6f3; --tp-sherbet-ink: #344e6d; }
+.tp-v2, .tp-v8 { --tp-number-color: #059669; --tp-sherbet-bg: #d8eadc; --tp-sherbet-ink: #365e49; }
+.tp-v3, .tp-v7 { --tp-number-color: #c2410c; --tp-sherbet-bg: #f6ddcb; --tp-sherbet-ink: #754b37; }
+.tp-v4, .tp-v6 { --tp-number-color: #7c3aed; --tp-sherbet-bg: #e9dff2; --tp-sherbet-ink: #604873; }
+.tp-v5 { --tp-number-color: #1f2937; --tp-sherbet-bg: #e4e4df; --tp-sherbet-ink: #50554f; }   /* charcoal: the only non-colour number, so it never reads as 3·7 */
 
 .tp-cell.tp-sel {
     background: #dbeafe;
@@ -3650,7 +3650,7 @@ body.tp-open {
 
 .tp-actions {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 10px;
 }
 
@@ -4418,35 +4418,56 @@ body.tp-open {
     min-width: 0;
 }
 
+.tp-actions > .tp-btn {
+    padding-inline: 4px;
+    white-space: nowrap;
+}
+
 .tp-color-toggle {
-    grid-column: 1 / -1;
+    display: grid;
+    align-content: center;
+    gap: 2px;
+    padding-block: 5px;
+    line-height: 1.2;
 }
 
-.tp-color-toggle[aria-pressed="true"] {
-    background: #e8eef9;
-    border-color: #8196b7;
-    color: #203653;
+.tp-color-toggle small {
+    font-size: 0.68rem;
+    font-weight: 500;
 }
 
-.tp-colored-tiles .tp-board .tp-cell[class*="tp-v"] {
+[data-tile-mode="sherbet"] .tp-board-wrap {
+    background: white;
+}
+
+[data-tile-mode="sherbet"] .tp-board .tp-cell[class*="tp-v"] {
+    background-color: var(--tp-sherbet-bg);
+    color: var(--tp-sherbet-ink);
+}
+
+[data-tile-mode="sherbet"] .tp-board .tp-cell:is(.tp-star, .tp-bomb, .tp-line, .tp-rainbow) {
+    color: #432636;
+}
+
+[data-tile-mode="vivid"] .tp-board .tp-cell[class*="tp-v"] {
     background-color: var(--tp-number-color);
     color: white;
 }
 
 /* Keep the numeral legible on pastel artwork and the lightest (green) tile. */
-.tp-colored-tiles .tp-cell:is(.tp-star, .tp-bomb, .tp-line, .tp-rainbow, .tp-v2, .tp-v8) {
+[data-tile-mode="vivid"] .tp-cell:is(.tp-star, .tp-bomb, .tp-line, .tp-rainbow, .tp-v2, .tp-v8) {
     paint-order: stroke fill;
     -webkit-text-stroke: 1.6px #34404b;
 }
 
-.tp-colored-tiles .tp-cell.tp-anchor,
-.tp-colored-tiles .tp-cell.tp-hinting {
+[data-tile-mode="vivid"] .tp-cell.tp-anchor,
+[data-tile-mode="vivid"] .tp-cell.tp-hinting {
     outline: 2px solid white;
     outline-offset: -2px;
 }
 
-.tp-colored-tiles :is(.tp-banner, .tp-rush),
-body.tp-open:has(.tp-colored-tiles) > .fx-float {
+[data-tile-mode="vivid"] :is(.tp-banner, .tp-rush),
+body.tp-open:has([data-tile-mode="vivid"]) > .fx-float {
     color: white;
     paint-order: stroke fill;
     -webkit-text-stroke: 3px #263044;

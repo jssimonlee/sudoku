@@ -38,6 +38,11 @@
     const SPAWN_BOMB = 0.02;        // ... or as 💣
     const TILE_COLOR_KEY = 'sudoku-tenpop-colored-tiles';
     const BEST_KEY = 'sudoku-tenpop-best';
+    const TILE_MODES = [
+        { id: 'numbers', label: '숫자색' },
+        { id: 'vivid', label: '진한 배경' },
+        { id: 'sherbet', label: '우유 셔벗' }
+    ];
     const START_TIME_MS = 60000;
     const MAX_TIME_MS = 99000;
     const JOKER = -1;               // grid value of a joker cell
@@ -237,28 +242,31 @@
         finishBtn = el('button', 'tp-btn tp-btn-ghost', '그만하기');
         finishBtn.type = 'button';
         finishBtn.addEventListener('click', () => finish('quit'));
-        actions.append(hintBtn, finishBtn);
-
         const colorButton = el('button', 'tp-btn tp-btn-ghost tp-color-toggle');
         colorButton.type = 'button';
-        colorButton.setAttribute('aria-label', '숫자 배경색');
-        function setTileColors(enabled) {
-            root.classList.toggle('tp-colored-tiles', enabled);
-            colorButton.setAttribute('aria-pressed', String(enabled));
-            colorButton.textContent = enabled ? '숫자 배경색 켜짐' : '숫자 배경색 꺼짐';
-        }
+        const modeLabel = el('span');
+        colorButton.append(el('small', '', '색상 모드'), modeLabel);
 
-        let coloredTiles = false;
-        try { coloredTiles = localStorage.getItem(TILE_COLOR_KEY) === 'true'; }
+        let storedMode;
+        try { storedMode = localStorage.getItem(TILE_COLOR_KEY); }
         catch (e) { /* storage unavailable */ }
-        setTileColors(coloredTiles);
+        // Earlier versions stored the vivid setting as a boolean.
+        if (storedMode === 'true') storedMode = 'vivid';
+        let modeIndex = Math.max(0, TILE_MODES.findIndex(mode => mode.id === storedMode));
+        function showTileMode() {
+            const mode = TILE_MODES[modeIndex];
+            root.dataset.tileMode = mode.id;
+            modeLabel.textContent = mode.label;
+            colorButton.title = `다음 색상 모드: ${TILE_MODES[(modeIndex + 1) % TILE_MODES.length].label}`;
+        }
+        showTileMode();
         colorButton.addEventListener('click', () => {
-            const enabled = !root.classList.contains('tp-colored-tiles');
-            setTileColors(enabled);
-            try { localStorage.setItem(TILE_COLOR_KEY, String(enabled)); }
+            modeIndex = (modeIndex + 1) % TILE_MODES.length;
+            showTileMode();
+            try { localStorage.setItem(TILE_COLOR_KEY, TILE_MODES[modeIndex].id); }
             catch (e) { /* still works for the current session */ }
         });
-        actions.append(colorButton);
+        actions.append(colorButton, hintBtn, finishBtn);
 
         inner.append(head, hud, gauge, feverBar, wrapEl, hintEl, actions);
         root.append(inner, resultEl);
