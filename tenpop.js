@@ -79,6 +79,7 @@
     }
 
     // === State ===
+    let fromSolvedBoard = true;  // false when opened from the game list (a random board)
     let startGrid = null;   // the solved board, kept for "다시 하기"
     let grid = [];          // numbers, 0 = empty, JOKER = joker
     let special = [];       // null | { type: 'star' | 'bomb' | 'line' | 'rainbow' | 'joker', hp, dir ('h' | 'v' for a line bomb) }
@@ -1258,8 +1259,9 @@
             if (note) line.append(el('em', '', note));
             rows.append(line);
         };
-        row('터뜨린 칸 · 플레이 시간', `${cleared} · ${formatTime(playMs)}`);
-        row('최고 콤보 · 연쇄', `${maxCombo >= 2 ? `×${maxCombo}` : '-'} · ${maxChain ? maxChain : '-'}`, `기록 ×${best.combo || 0} · ${best.chain || 0}`);
+        row('터뜨린 칸', `${cleared.toLocaleString()}칸`, `플레이 ${formatTime(playMs)}`);
+        row('최고 콤보 · 연쇄', `${maxCombo >= 2 ? `×${maxCombo}` : '없음'} · ${maxChain ? `${maxChain}연쇄` : '없음'}`,
+            `기록 ×${best.combo || 0} · ${best.chain || 0}연쇄`);
         row('최고 점수', best.score.toLocaleString(), newScore ? '새 기록' : '');
         card.append(rows);
 
@@ -1267,18 +1269,21 @@
         const again = el('button', 'primary-btn', '다시 하기');
         again.type = 'button';
         again.addEventListener('click', () => start(startGrid));
-        const back = el('button', 'tp-btn tp-btn-ghost', '결과로 돌아가기');
+        // Opened from the game list there is no Sudoku result to go back to.
+        const back = el('button', 'tp-btn tp-btn-ghost', fromSolvedBoard ? '결과로 돌아가기' : '닫기');
         back.type = 'button';
         back.addEventListener('click', close);
-        buttons.append(again, back);
+        const sub = el('div', 'tp-result-sub');
+        sub.append(back);
         const lb = window.Leaderboard;
         if (lb && typeof lb.showTenPop === 'function') {
             const rank = el('button', 'tp-btn tp-btn-ghost tp-btn-rank');
             rank.type = 'button';
             rank.innerHTML = '<i class="fas fa-trophy" aria-hidden="true"></i> TOP 10';
             rank.addEventListener('click', () => lb.showTenPop());
-            buttons.append(rank);
+            sub.append(rank);
         }
+        buttons.append(again, sub);
         card.append(buttons);
         resultEl.append(card);
         resultEl.hidden = false;
@@ -1441,7 +1446,10 @@
 
     function openRandom() {
         const g = randomBoard();
-        return g ? open(g) : false;
+        if (!g) return false;
+        const opened = open(g);
+        fromSolvedBoard = false;
+        return opened;
     }
 
     function open(solved) {
@@ -1449,6 +1457,7 @@
             solved.every((row) => Array.isArray(row) && row.length === SIZE && row.every((v) => v >= 1 && v <= 9));
         if (!valid) return false;
         if (!root) build();
+        fromSolvedBoard = true;
         root.hidden = false;
         start(solved);
         document.body.classList.add('tp-open');

@@ -4373,3 +4373,47 @@ body.tp-open {
 @media (prefers-reduced-motion: reduce) {
     .tp-board .tp-cell.tp-reward { animation: none; }
 }
+
+/* 합 10 지우기: board fit polish.
+   The board used to clip at its own edge, which cut off the bottom row's shadow (and the fuse
+   of a top-row bomb). It now clips only just above the top edge, where new numbers drop in. */
+.tp-board {
+    overflow: visible;
+    clip-path: inset(-5px -12px -12px -12px);
+}
+
+/* A little more room between the cells and the frame, with matching (concentric) corners */
+.tp-board-wrap {
+    padding: 10px;
+    border-radius: 19px;
+}
+
+/* The combo gauge track only shows while a combo is running (an empty grey line looked stray) */
+.tp-gauge {
+    transition: background-color 0.2s ease;
+}
+
+.tp-gauge:not(.active) {
+    background: transparent;
+}
+
+/* On tall phones the game sits in the middle instead of leaving a big gap at the bottom */
+.tp-inner {
+    margin-block: auto;
+}
+
+/* The thin combo gauge doesn't need a full row gap above and below it */
+.tp-gauge {
+    margin-block: -5px;
+}
+
+/* Result card: the two smaller buttons share one row under "다시 하기" */
+.tp-result-sub {
+    display: flex;
+    gap: 8px;
+}
+
+.tp-result-sub > .tp-btn {
+    flex: 1;
+    min-width: 0;
+}
