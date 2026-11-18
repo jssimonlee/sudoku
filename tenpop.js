@@ -627,10 +627,13 @@
 
         // Two pairs from one swap leave a line bomb behind, three or more a rainbow piece.
         // It takes the place of the swapped number that made the most pairs (which stays).
+        // A joker is never kept: it always pops with its pairs, so it is a one-shot item.
         let made = null;
-        if (matches.length >= 2) {
-            const countAt = (p) => matches.filter((m) => same(m.key, p)).length;
-            const keyCell = countAt(a) >= countAt(b) ? a : b;
+        const countAt = (p) => matches.filter((m) => same(m.key, p)).length;
+        const keyCell = [a, b]
+            .filter((p) => at(p) !== JOKER && countAt(p) > 0)
+            .sort((p, q) => countAt(q) - countAt(p))[0];
+        if (matches.length >= 2 && keyCell) {
             const horizontal = matches.filter((m) => same(m.key, keyCell) && m.line[1][0] === keyCell[0]).length;
             const vertical = countAt(keyCell) - horizontal;
             made = matches.length >= 3
@@ -656,7 +659,8 @@
         animateClear(result);
         fx('onTenClear', { cells: union.map(cellEl), combo, points, length: union.length, star: result.stars > 0, fever: feverOn });
         if (result.stars) banner('★ 점수 2배!', 2);
-        else if (cross) banner(matches.length >= 3 ? '트리플! 🌈 생성' : '더블! ⚡ 생성', 2);
+        else if (cross && made) banner(matches.length >= 3 ? '트리플! 🌈 생성' : '더블! ⚡ 생성', 2);
+        else if (cross) banner(matches.length >= 3 ? '🃏 조커 트리플!' : '🃏 조커 더블!', 2);
         else if (combo >= 3 && combo % 5 === 0) banner(`${combo} COMBO!`, combo >= 10 ? 3 : 2);
         else if (combo === 3) banner('3 COMBO!', 1);
 
