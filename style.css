@@ -3547,7 +3547,7 @@ body.tp-open {
 .tp-v2, .tp-v8 { color: #059669; }
 .tp-v3, .tp-v7 { color: #c2410c; }
 .tp-v4, .tp-v6 { color: #7c3aed; }
-.tp-v5 { color: #be185d; }
+.tp-v5 { color: #1f2937; }   /* charcoal: the only non-colour number, so it never reads as 3·7 */
 
 .tp-cell.tp-sel {
     background: #dbeafe;
