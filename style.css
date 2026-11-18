@@ -3505,6 +3505,12 @@ body.tp-open {
     touch-action: none;
     user-select: none;
     -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.tp-board > .tp-cell {
+    touch-action: none;
 }
 
 .tp-cell {

@@ -137,10 +137,27 @@
         root.append(inner);
         document.body.append(root);
 
-        boardEl.addEventListener('pointerdown', onPointerDown);
-        boardEl.addEventListener('pointermove', onPointerMove);
-        boardEl.addEventListener('pointerup', onPointerUp);
-        boardEl.addEventListener('pointercancel', cancelDrag);
+        // Mouse / pen use pointer events. Fingers use touch events with preventDefault:
+        // phones (iOS Safari above all) otherwise take the move as a scroll and cancel the drag.
+        boardEl.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'touch') onPointerDown(e); });
+        boardEl.addEventListener('pointermove', (e) => { if (e.pointerType !== 'touch') onPointerMove(e); });
+        boardEl.addEventListener('pointerup', (e) => { if (e.pointerType !== 'touch') onPointerUp(e); });
+        boardEl.addEventListener('pointercancel', (e) => { if (e.pointerType !== 'touch') cancelDrag(); });
+        const firstTouch = (e) => e.changedTouches[0];
+        boardEl.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (e.touches.length > 1) return;   // ignore a second finger
+            onPointerDown(firstTouch(e), true);
+        }, { passive: false });
+        boardEl.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            onPointerMove(firstTouch(e));
+        }, { passive: false });
+        boardEl.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            onPointerUp(firstTouch(e));
+        }, { passive: false });
+        boardEl.addEventListener('touchcancel', cancelDrag);
         document.addEventListener('keydown', (e) => {
             if (!root.hidden && e.key === 'Escape') close();
         });
@@ -284,12 +301,15 @@
         return [r, c];
     }
 
-    function onPointerDown(e) {
+    // e: a PointerEvent, or a Touch (fromTouch) — both carry clientX / clientY.
+    function onPointerDown(e, fromTouch = false) {
         if (busy || finished) return;
         const p = pointToCell(e);
         if (!p) return;
-        e.preventDefault();
-        try { boardEl.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
+        if (!fromTouch) {
+            e.preventDefault();
+            try { boardEl.setPointerCapture(e.pointerId); } catch (err) { /* not supported */ }
+        }
         drag = { start: p, cells: [p], moved: false };
         paintSelection();
     }
