@@ -1,8 +1,9 @@
 // 합 10 지우기: a bonus game played on the board you just solved.
-// Swap two neighbouring numbers. If the swap lines up, in a straight row or column through a
-// swapped cell, two touching numbers that make 10 (3·7) or three that make 10 or 20
-// (2·3·5, 9·8·3), they pop. Otherwise the swap slides back. Numbers above fall down;
-// nothing new comes in, so the board slowly empties.
+// Swap two neighbouring numbers. If a swapped number ends up touching (in its row or column)
+// a number it makes 10 with (3·7, 4·6...), the pair pops. Otherwise the swap slides back.
+// Numbers above fall down; nothing new comes in, so the board slowly empties.
+// (Three-cell lines making 10 or 20 were tried and dropped: they are everywhere on a board,
+// so most of them could be seen but never popped.)
 //
 // Extras:
 // - Time survival: 60 seconds to start; every match buys a little more time.
@@ -37,24 +38,15 @@
     const AXES = [[0, 1], [1, 0]];
     const NEIGHBORS = [[0, 1], [1, 0], [0, -1], [-1, 0]];
 
-    // Can these values (JOKER = any 1-9) make a match? Two cells: 10. Three cells: 20 or 10.
-    // Returns the sum made, or 0.
+    // Do these two values (JOKER = any 1-9) make 10? Returns 10, or 0.
     function matchSum(values) {
         let fixed = 0;
         let jokers = 0;
         values.forEach((v) => { if (v === JOKER) jokers++; else fixed += v; });
-        const targets = values.length === 2 ? [10] : [20, 10];
-        for (const t of targets) {
-            if (fixed + jokers <= t && t <= fixed + 9 * jokers) return t;
-        }
-        return 0;
+        return fixed + jokers <= 10 && 10 <= fixed + 9 * jokers ? 10 : 0;
     }
 
-    // Points for one matched line.
-    function linePoints(len, sum) {
-        if (len === 2) return 20;
-        return sum === 20 ? 80 : 50;
-    }
+    const PAIR_POINTS = 20;
 
     function comboMultiplier(combo) {
         return Math.min(3, 1 + 0.25 * (combo - 1));
@@ -101,6 +93,9 @@
     let lastTick = 0;
     let lastBeep = 0;
     let hintsLeft = HINTS_PER_GAME;
+    let paused = false;
+    let feverEndsAt = 0;
+    let feverLeftMs = 0;
     let hintShown = false;
     let busy = false;
     let finished = false;
@@ -110,7 +105,7 @@
 
     // === DOM (built once, on first open) ===
     let root, boardEl, cells, timeEl, timeBox, scoreEl, comboEl, leftEl, gaugeEl,
-        feverBar, feverFill, hintEl, itemBtns, hintBtn, finishBtn, resultEl, wrapEl;
+        feverBar, feverFill, hintEl, itemBtns, hintBtn, finishBtn, resultEl, wrapEl, pauseEl;
 
     function el(tag, className, text) {
         const node = document.createElement(tag);
@@ -179,7 +174,21 @@
             boardEl.append(cell);
             cells.push(cell);
         }
-        wrapEl.append(boardEl);
+        // Pause cover: hides the board (no peeking) until it is tapped.
+        pauseEl = el('div', 'tp-pause');
+        pauseEl.hidden = true;
+        pauseEl.setAttribute('role', 'button');
+        pauseEl.setAttribute('aria-label', '게임 계속하기');
+        const play = el('div', 'tp-pause-play');
+        play.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6v12l10-6z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>';
+        pauseEl.append(play, el('p', '', '일시정지 · 눌러서 계속하기'));
+        pauseEl.addEventListener('click', resume);
+        wrapEl.append(boardEl, pauseEl);
+
+        // The clock doubles as a pause button.
+        timeBox.setAttribute('role', 'button');
+        timeBox.setAttribute('aria-label', '일시정지 / 계속하기');
+        timeBox.addEventListener('click', () => { if (paused) resume(); else pause(); });
 
         resultEl = el('div', 'tp-result');
         resultEl.hidden = true;
@@ -237,6 +246,36 @@
             if (root.hidden || e.key !== 'Escape') return;
             if (itemMode) cancelItem(); else close();
         });
+        // Leaving the window or the app pauses the game, like the Sudoku does.
+        window.addEventListener('blur', pause);
+        document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });
+    }
+
+    // === Pause ===
+    function pause() {
+        if (!root || root.hidden || finished || paused) return;
+        paused = true;
+        press = null;
+        clearTimeout(comboTimer);
+        if (feverOn) {
+            feverLeftMs = Math.max(0, feverEndsAt - performance.now());
+            clearTimeout(feverTimer);
+        }
+        root.classList.add('tp-paused');
+        pauseEl.hidden = false;
+    }
+
+    function resume() {
+        if (!paused) return;
+        paused = false;
+        lastTick = performance.now();
+        root.classList.remove('tp-paused');
+        pauseEl.hidden = true;
+        if (feverOn) {
+            feverEndsAt = performance.now() + feverLeftMs;
+            feverTimer = setTimeout(endFever, feverLeftMs);
+        }
+        if (combo > 0) restartComboWindow();
     }
 
     // === Board helpers ===
@@ -261,9 +300,9 @@
         return sum;
     }
 
-    // The best line (2 or 3 touching cells on one axis) through p that makes a match.
-    // skip(line) rules out lines that aren't new.
-    function bestLineThrough(g, p, skip, lengths = [3, 2]) {
+    // A pair (two touching cells on one axis) through p that makes 10.
+    // skip(line) rules out pairs that aren't new.
+    function bestLineThrough(g, p, skip, lengths = [2]) {
         let best = null;
         for (const [dr, dc] of AXES) {
             for (const len of lengths) {
@@ -397,7 +436,7 @@
                 text = '🔥 FEVER! 점수 2배';
                 tone = 'hot';
             } else {
-                text = '두 칸을 바꿔 3·7처럼 합 10을 붙이세요 (세 칸은 10·20)';
+                text = '이웃한 두 칸을 바꿔 3·7, 4·6처럼 합 10 짝을 붙이세요';
             }
         }
         hintEl.textContent = text;
@@ -416,7 +455,7 @@
         const dt = now - lastTick;
         lastTick = now;
         // The clock stops while a chain is playing out and while the page is in the background.
-        if (finished || !root || root.hidden || busy || document.hidden) return;
+        if (finished || !root || root.hidden || busy || paused || document.hidden) return;
         timeLeft -= dt;
         playMs += dt;
         if (timeLeft <= 0) {
@@ -445,7 +484,7 @@
 
     // 💡: the two cells of a good swap wiggle until the next move.
     function useHint() {
-        if (finished || busy || hintsLeft <= 0 || hintShown) return;
+        if (finished || busy || paused || hintsLeft <= 0 || hintShown) return;
         if (itemMode) cancelItem();
         const swap = findSwap();
         if (!swap) return;
@@ -474,7 +513,7 @@
     // e: a PointerEvent, or a Touch (fromTouch). Both carry clientX / clientY.
     function onDown(e, fromTouch) {
         clearHint();
-        if (busy || finished) return;
+        if (busy || finished || paused) return;
         const p = pointToCell(e);
         if (!p) return;
         if (!fromTouch) {
@@ -589,26 +628,22 @@
         matches.forEach(({ line }) => line.forEach((p) => { if (!union.some((q) => same(q, p))) union.push(p); }));
         const result = resolveClear(union);
         const feverMult = feverOn ? 2 : 1;
-        const cross = matches.length >= 2;
-        let base = 0;
-        matches.forEach(({ line, sum }) => { base += linePoints(line.length, sum); });
+        const cross = matches.length >= 2;   // two or more pairs from one swap
+        const base = matches.length * PAIR_POINTS;
         const points = Math.round(base * (cross ? 1.5 : 1) * comboMultiplier(combo) *
             (result.stars ? 2 : 1) * feverMult) + result.extra.length * 15 * feverMult;
         score += points;
 
         animateClear(result);
-        const big = matches.some(({ line }) => line.length === 3);
-        const twenty = matches.some(({ sum }) => sum === 20);
         fx('onTenClear', { cells: union.map(cellEl), combo, points, length: union.length, star: result.stars > 0, fever: feverOn });
         if (result.stars) banner('★ 점수 2배!', 2);
-        else if (cross) banner('크로스!', 2);
-        else if (twenty) banner('더블 텐!', 2);
+        else if (cross) banner(matches.length >= 3 ? '트리플!' : '더블!', 2);
         else if (combo >= 3 && combo % 5 === 0) banner(`${combo} COMBO!`, combo >= 10 ? 3 : 2);
         else if (combo === 3) banner('3 COMBO!', 1);
 
-        addTime(1 + (big ? 1 : 0) + (cross ? 1 : 0));
+        addTime(1 + (cross ? 1 : 0) + (matches.length >= 3 ? 1 : 0));
         if (combo >= 4 && combo % 4 === 0) giveItem();
-        addFever(8 + 3 * Math.min(combo, 6) + (big ? 6 : 0) + (cross ? 8 : 0));
+        addFever(8 + 3 * Math.min(combo, 6) + (cross ? 8 : 0));
         restartComboWindow();
         popThenChain(result);
     }
@@ -703,9 +738,8 @@
     }
 
     // Every touching pair (row or column) making 10 anywhere on the board. These never stay:
-    // they pop after each fall (chains), and the board starts without any. Three-cell lines only pop
-    // when a swap makes them (they form so easily that they would empty the board by
-    // themselves), and a joker only matches through a swap too.
+    // they pop after each fall (chains), and the board starts without any. A joker only
+    // matches through a swap (next to one, everything would make 10).
     function findChainMatches() {
         const taken = new Set();
         const found = [];
@@ -733,8 +767,7 @@
         const union = matches.flatMap(({ line }) => line);
         const result = resolveClear(union);
         const feverMult = feverOn ? 2 : 1;
-        let base = 0;
-        matches.forEach(({ line, sum }) => { base += linePoints(line.length, sum) + 10; });
+        const base = matches.length * (PAIR_POINTS + 10);
         const points = (base * step + result.extra.length * 15) * (result.stars ? 2 : 1) * feverMult;
         score += points;
         animateClear(result);
@@ -865,7 +898,7 @@
 
     function toggleItem(type) {
         clearHint();
-        if (finished || busy) return;
+        if (finished || busy || paused) return;
         if (itemMode === type) {
             cancelItem();
             return;
@@ -960,6 +993,7 @@
         fx('onTenFever', { on: true });
         giveItem();
         clearTimeout(feverTimer);
+        feverEndsAt = performance.now() + FEVER_MS;
         feverTimer = setTimeout(endFever, FEVER_MS);
         setHint();
     }
@@ -984,6 +1018,9 @@
     function finish(reason = 'stuck') {
         if (finished) return;
         finished = true;
+        paused = false;
+        root.classList.remove('tp-paused');
+        pauseEl.hidden = true;
         itemMode = null;
         press = null;
         setPicked(null);
@@ -1088,6 +1125,9 @@
         hintShown = false;
         busy = false;
         finished = false;
+        paused = false;
+        root.classList.remove('tp-paused');
+        pauseEl.hidden = true;
         breakCombo();
         clearTimeout(feverTimer);
         feverOn = false;

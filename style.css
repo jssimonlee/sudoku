@@ -4175,3 +4175,59 @@ body.tp-open {
     color: #b45309;
     border: 1.5px solid rgba(245, 158, 11, 0.5);
 }
+
+/* Bonus game pause: the board is covered (no peeking) until the cover is tapped */
+.tp-pause {
+    position: absolute;
+    inset: 0;
+    z-index: 7;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    border-radius: 16px;
+    background: rgba(248, 250, 252, 0.82);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    cursor: pointer;
+}
+
+.tp-pause[hidden] {
+    display: none !important;
+}
+
+.tp-pause-play {
+    width: 76px;
+    height: 76px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    box-shadow: 0 12px 30px rgba(99, 102, 241, 0.4);
+}
+
+.tp-pause-play svg {
+    width: 34px;
+    height: 34px;
+    margin-left: 4px;
+}
+
+.tp-pause p {
+    margin: 0;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.tp-stat-time {
+    cursor: pointer;
+}
+
+/* Gauges stop draining while paused */
+.tp-paused .tp-fever.on i,
+.tp-paused .tp-gauge.active i,
+.tp-paused .tp-stat-time.tp-time-low {
+    animation-play-state: paused;
+}
