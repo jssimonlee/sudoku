@@ -1,17 +1,21 @@
 // 합 10 지우기: a bonus game played on the board you just solved.
-// Swap two neighbouring numbers. If a swapped number ends up touching (in its row or column)
-// a number it makes 10 with (3·7, 4·6...), the pair pops. Otherwise the swap slides back.
-// Numbers above fall down; nothing new comes in, so the board slowly empties.
+// Swap two neighbouring numbers. Every neighbour (up, down, left, right) of a swapped number
+// that makes 10 with it (3·7, 4·6...) pops with it. Otherwise the swap slides back.
+// Numbers above fall down and new random numbers drop in from the top, so the board stays
+// full and the goal is the best score in the time.
 // (Three-cell lines making 10 or 20 were tried and dropped: they are everywhere on a board,
 // so most of them could be seen but never popped.)
 //
 // Extras:
 // - Time survival: 60 seconds to start; every match buys a little more time.
+// - Special pieces: two pairs from one swap leave a ⚡ line bomb (clears its row or column),
+//   three or more a 🌈 rainbow piece (swap it with a number to pop every copy of it).
 // - No ready-made 10s: a touching pair making 10 never stays on the board. A random board is
 //   dealt without any; a solved Sudoku board has a few numbers trade places until it has none;
 //   after every fall, any pair making 10 pops by itself (chains).
 // - Fever: quick matches fill the fever gauge; when it is full, points are doubled for 10 seconds.
-// - Special cells: ★ doubles that match, 💣 also blows up its four neighbours, 🧊 needs two hits.
+// - Special cells: ★ doubles that match, 💣 also blows up its four neighbours (a few also drop in
+//   with the new numbers). Ice that needed two hits was dropped: it only got in the way.
 // - Items (won by combos and fever): 🔨 breaks one cell, 🌈 pops every copy of a number,
 //   🃏 turns a cell into a joker that counts as whatever number makes the match.
 // - Stuck boards are shuffled automatically; the 💡 button (3 per game) shows a good swap.
@@ -24,7 +28,9 @@
     const HINTS_PER_GAME = 3;
     const FEVER_MS = 10000;
     const FEVER_MAX = 100;
-    const SPECIALS = { star: 3, bomb: 2, ice: 2 };
+    const SPECIALS = { star: 3, bomb: 2 };
+    const SPAWN_STAR = 0.03;        // chance a new number drops in as ★
+    const SPAWN_BOMB = 0.02;        // ... or as 💣
     const BEST_KEY = 'sudoku-tenpop-best';
     const START_TIME_MS = 60000;
     const MAX_TIME_MS = 99000;
@@ -74,7 +80,7 @@
     // === State ===
     let startGrid = null;   // the solved board, kept for "다시 하기"
     let grid = [];          // numbers, 0 = empty, JOKER = joker
-    let special = [];       // null | { type: 'star' | 'bomb' | 'ice' | 'joker', hp, v (a joker's old number) }
+    let special = [];       // null | { type: 'star' | 'bomb' | 'line' | 'rainbow' | 'joker', hp, dir ('h' | 'v' for a line bomb) }
     let score = 0;
     let combo = 0;
     let maxCombo = 0;
@@ -104,7 +110,7 @@
     let gameId = 0;         // timers from an earlier game (closed or restarted mid-chain) stop themselves
 
     // === DOM (built once, on first open) ===
-    let root, boardEl, cells, timeEl, timeBox, scoreEl, comboEl, leftEl, gaugeEl,
+    let root, boardEl, cells, timeEl, timeBox, scoreEl, comboEl, chainEl, gaugeEl,
         feverBar, feverFill, hintEl, itemBtns, hintBtn, finishBtn, resultEl, wrapEl, pauseEl;
 
     function el(tag, className, text) {
@@ -152,7 +158,7 @@
         hud.append(box);
         [box, comboEl] = stat('콤보', 'tp-combo');
         hud.append(box);
-        [box, leftEl] = stat('남은 합', 'tp-left');
+        [box, chainEl] = stat('최고 연쇄', 'tp-chain');
         hud.append(box);
 
         const gauge = el('div', 'tp-gauge');
@@ -286,20 +292,6 @@
     const inside = (r, c) => r >= 0 && c >= 0 && r < SIZE && c < SIZE;
     const keyOf = ([r, c]) => r * SIZE + c;
 
-    // A joker still counts its original number, so turning the last numbers into jokers
-    // isn't a shortcut to ALL CLEAR.
-    function leftSum() {
-        let sum = 0;
-        for (let r = 0; r < SIZE; r++) {
-            for (let c = 0; c < SIZE; c++) {
-                const v = grid[r][c];
-                if (v > 0) sum += v;
-                else if (v === JOKER) sum += (special[r][c] && special[r][c].v) || 0;
-            }
-        }
-        return sum;
-    }
-
     // A pair (two touching cells on one axis) through p that makes 10.
     // skip(line) rules out pairs that aren't new.
     function bestLineThrough(g, p, skip, lengths = [2]) {
@@ -325,26 +317,21 @@
         return best;
     }
 
-    // Matches made by swapping a and b in g (g already swapped). A line holding both swapped
-    // cells has the same numbers as before the swap, so it doesn't count.
+    // Pairs made by swapping a and b in g (g already swapped): every neighbour (up, down,
+    // left, right) of a swapped number that makes 10 with it, so one swap can pop several.
+    // The pair a·b itself holds the same numbers as before the swap, so it doesn't count.
     function swapMatches(g, a, b) {
-        const skip = (line) => line.some((q) => same(q, a)) && line.some((q) => same(q, b));
         const found = [];
         [a, b].forEach((p) => {
-            for (const axis of AXES) {
-                const best = bestLineThrough(g, p, (line) => skip(line) || !onAxis(line, axis));
-                if (best && !found.some((f) => sameLine(f.line, best.line))) found.push(best);
+            if (!g[p[0]][p[1]]) return;
+            for (const [dr, dc] of NEIGHBORS) {
+                const q = [p[0] + dr, p[1] + dc];
+                if (!inside(q[0], q[1]) || !g[q[0]][q[1]] || same(q, a) || same(q, b)) continue;
+                if (!matchSum([g[p[0]][p[1]], g[q[0]][q[1]]])) continue;
+                found.push({ line: [p, q], sum: 10, key: p });
             }
         });
         return found;
-    }
-
-    function onAxis(line, [dr, dc]) {
-        return line.length < 2 || (line[1][0] - line[0][0] === dr && line[1][1] - line[0][1] === dc);
-    }
-
-    function sameLine(x, y) {
-        return x.length === y.length && x.every((p, i) => same(p, y[i]));
     }
 
     // Any swap on the board that would make a match? Returns [a, b] or null.
@@ -355,7 +342,9 @@
                 for (const [dr, dc] of [[0, 1], [-1, 0]]) {
                     const rr = r + dr;
                     const cc = c + dc;
-                    if (!inside(rr, cc) || !g[rr][cc] || g[rr][cc] === g[r][c]) continue;
+                    if (!inside(rr, cc) || !g[rr][cc]) continue;
+                    if (g === grid && (isRainbow([r, c]) || isRainbow([rr, cc]))) return [[r, c], [rr, cc]];
+                    if (g[rr][cc] === g[r][c]) continue;
                     [g[r][c], g[rr][cc]] = [g[rr][cc], g[r][c]];
                     const found = swapMatches(g, [r, c], [rr, cc]).length > 0;
                     [g[r][c], g[rr][cc]] = [g[rr][cc], g[r][c]];
@@ -373,7 +362,7 @@
         if (v === JOKER) return 'tp-cell tp-joker';
         const sp = special[r][c];
         let cls = `tp-cell tp-v${v}`;
-        if (sp) cls += ` tp-${sp.type}${sp.type === 'ice' && sp.hp < 2 ? ' tp-ice-cracked' : ''}`;
+        if (sp) cls += ` tp-${sp.type}${sp.type === 'line' ? ` tp-line-${sp.dir}` : ''}`;
         return cls;
     }
 
@@ -395,7 +384,7 @@
         }
         if (picked && at(picked)) cellEl(picked).classList.add('tp-anchor');
         scoreEl.textContent = score.toLocaleString();
-        leftEl.textContent = String(leftSum());
+        chainEl.textContent = maxChain ? String(maxChain) : '-';
         comboEl.textContent = combo >= 2 ? `×${combo}` : '-';
         finishBtn.disabled = finished;
         hintBtn.textContent = `💡 힌트 ${hintsLeft}`;
@@ -593,12 +582,21 @@
         render();
         animateSwap(a, b);
         fx('onTenSwap');
-        const matches = swapMatches(grid, a, b);
         const id = gameId;
+        // A rainbow piece swapped with a number pops every copy of that number.
+        const rainbowAt = isRainbow(a) ? a : isRainbow(b) ? b : null;
+        if (rainbowAt) {
+            setTimeout(() => {
+                if (id !== gameId) return;
+                fireRainbow(rainbowAt, same(rainbowAt, a) ? b : a);
+            }, SWAP_MS + 40);
+            return;
+        }
+        const matches = swapMatches(grid, a, b);
         setTimeout(() => {
             if (id !== gameId) return;
             if (matches.length) {
-                scoreMatch(matches);
+                scoreMatch(matches, a, b);
                 return;
             }
             // No match: slide back, and the combo is over.
@@ -620,13 +618,34 @@
         }, SWAP_MS + 40);
     }
 
-    function scoreMatch(matches) {
+    function scoreMatch(matches, a, b) {
         const now = performance.now();
         combo = now - lastClearAt <= COMBO_WINDOW_MS ? combo + 1 : 1;
         maxCombo = Math.max(maxCombo, combo);
         const union = [];
         matches.forEach(({ line }) => line.forEach((p) => { if (!union.some((q) => same(q, p))) union.push(p); }));
-        const result = resolveClear(union);
+
+        // Two pairs from one swap leave a line bomb behind, three or more a rainbow piece.
+        // It takes the place of the swapped number that made the most pairs (which stays).
+        let made = null;
+        if (matches.length >= 2) {
+            const countAt = (p) => matches.filter((m) => same(m.key, p)).length;
+            const keyCell = countAt(a) >= countAt(b) ? a : b;
+            const horizontal = matches.filter((m) => same(m.key, keyCell) && m.line[1][0] === keyCell[0]).length;
+            const vertical = countAt(keyCell) - horizontal;
+            made = matches.length >= 3
+                ? { cell: keyCell, sp: { type: 'rainbow', hp: 1 } }
+                : { cell: keyCell, sp: { type: 'line', hp: 1, dir: horizontal >= vertical ? 'h' : 'v' } };
+        }
+        const toClear = made ? union.filter((p) => !same(p, made.cell)) : union;
+        const result = resolveClear(toClear);
+        if (made && !result.removed.some((p) => same(p, made.cell))) {
+            special[made.cell[0]][made.cell[1]] = made.sp;
+            const cell = cellEl(made.cell);
+            cell.className = cellClass(made.cell[0], made.cell[1]);
+            cell.classList.add('tp-made');
+            setTimeout(() => cell.classList.remove('tp-made'), 600);
+        }
         const feverMult = feverOn ? 2 : 1;
         const cross = matches.length >= 2;   // two or more pairs from one swap
         const base = matches.length * PAIR_POINTS;
@@ -637,11 +656,12 @@
         animateClear(result);
         fx('onTenClear', { cells: union.map(cellEl), combo, points, length: union.length, star: result.stars > 0, fever: feverOn });
         if (result.stars) banner('★ 점수 2배!', 2);
-        else if (cross) banner(matches.length >= 3 ? '트리플!' : '더블!', 2);
+        else if (cross) banner(matches.length >= 3 ? '트리플! 🌈 생성' : '더블! ⚡ 생성', 2);
         else if (combo >= 3 && combo % 5 === 0) banner(`${combo} COMBO!`, combo >= 10 ? 3 : 2);
         else if (combo === 3) banner('3 COMBO!', 1);
 
-        addTime(1 + (cross ? 1 : 0) + (matches.length >= 3 ? 1 : 0));
+        // With the board always full, matches come easily: only bigger moves buy time.
+        addTime((cross ? 1 : 0) + (matches.length >= 3 ? 1 : 0));
         if (combo >= 4 && combo % 4 === 0) giveItem();
         addFever(8 + 3 * Math.min(combo, 6) + (cross ? 8 : 0));
         restartComboWindow();
@@ -671,22 +691,20 @@
     }
 
     // === Clearing ===
-    // Works out what a clear takes: ice only cracks on its first hit, bombs take their
-    // four neighbours with them (and set off other bombs).
+    // Works out what a clear takes: 💣 takes its four neighbours, a line bomb its whole row or
+    // column, a rainbow piece every copy of its number (and each sets off the others it hits).
     function resolveClear(list) {
         const removed = new Map();
         const cracked = [];
         const extra = [];
         let stars = 0;
         let bombs = 0;
+        let lines = 0;
+        let rainbows = 0;
         const hit = (p, fromBomb) => {
             const k = keyOf(p);
             if (removed.has(k) || cracked.some((q) => same(q, p))) return;
             const sp = special[p[0]][p[1]];
-            if (sp && sp.type === 'ice' && sp.hp > 1) {
-                cracked.push(p);
-                return;
-            }
             removed.set(k, p);
             if (fromBomb) extra.push(p);
             if (sp && sp.type === 'star') stars++;
@@ -698,22 +716,36 @@
                     hit(q, true);
                 }
             }
+            if (sp && sp.type === 'line') {
+                lines++;
+                for (let k = 0; k < SIZE; k++) {
+                    const q = sp.dir === 'h' ? [p[0], k] : [k, p[1]];
+                    if (at(q)) hit(q, true);
+                }
+            }
+            if (sp && sp.type === 'rainbow' && at(p) > 0) {
+                rainbows++;
+                const v = at(p);
+                for (let r = 0; r < SIZE; r++) {
+                    for (let c = 0; c < SIZE; c++) if (grid[r][c] === v) hit([r, c], true);
+                }
+            }
         };
         list.forEach((p) => hit(p, false));
-        return { removed: [...removed.values()], cracked, extra, stars, bombs };
+        return { removed: [...removed.values()], cracked, extra, stars, bombs, lines, rainbows };
     }
 
     function animateClear(result) {
         result.removed.forEach((p) => cellEl(p).classList.add('tp-pop'));
         result.cracked.forEach((p) => cellEl(p).classList.add('tp-crack'));
-        if (result.bombs) {
+        if (result.bombs || result.lines || result.rainbows) {
             fx('onTenBomb', { cells: result.extra.map(cellEl) });
-            banner('💣 BOOM!', 2);
-            addTime(1);
+            banner(result.rainbows ? '🌈 무지개!' : result.lines ? '⚡ 줄 폭발!' : '💣 BOOM!', result.lines || result.rainbows ? 3 : 2);
+            if (result.lines || result.rainbows) addTime(1);
         }
     }
 
-    // Removes the cells, cracks the ice, lets everything fall. Returns how far each cell fell.
+    // Removes the cells and lets everything fall (new numbers fill the top). Returns how far each cell fell.
     function applyClear(result) {
         result.removed.forEach(([r, c]) => {
             grid[r][c] = 0;
@@ -773,7 +805,7 @@
         animateClear(result);
         fx('onTenChain', { cells: union.map(cellEl), step, points });
         banner(step === 1 ? '연쇄!' : `${step}연쇄!`, step >= 3 ? 3 : 2);
-        addTime(1);
+        if (step >= 4) addTime(1);
         addFever(Math.min(12, 4 * matches.length));
 
         setTimeout(() => {
@@ -804,10 +836,6 @@
 
     function checkStuck() {
         if (finished) return;
-        if (!grid.flat().some((v) => v > 0)) {
-            setTimeout(() => finish('stuck'), 650);     // only jokers (or nothing) left: done
-            return;
-        }
         if (findSwap()) return;
         if (autoShuffle()) return;
         if (usefulItems()) {
@@ -817,7 +845,8 @@
         setTimeout(() => finish('stuck'), 650);
     }
 
-    // Numbers (and their special marks) fall straight down into the gaps.
+    // Numbers (and their special marks) fall straight down into the gaps, and new random
+    // numbers drop in from above to fill the top, so the board is always full.
     function applyGravity() {
         const drops = Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
         for (let c = 0; c < SIZE; c++) {
@@ -836,8 +865,49 @@
                 drops[write][c] = write - from;
                 write--;
             }
+            const gap = write + 1;
+            for (let r = write; r >= 0; r--) {
+                grid[r][c] = 1 + Math.floor(Math.random() * 9);
+                const roll = Math.random();
+                special[r][c] = roll < SPAWN_STAR ? { type: 'star', hp: 1 } : roll < SPAWN_STAR + SPAWN_BOMB ? { type: 'bomb', hp: 1 } : null;
+                drops[r][c] = gap;
+            }
         }
         return drops;
+    }
+
+    function isRainbow([r, c]) {
+        return Boolean(special[r] && special[r][c] && special[r][c].type === 'rainbow');
+    }
+
+    // A rainbow piece was swapped with `other`: every copy of that number pops (a joker or
+    // another rainbow takes the most common number).
+    function fireRainbow(at0, other) {
+        let value = at(other);
+        if (value <= 0 || isRainbow(other)) {
+            const counts = {};
+            grid.flat().forEach((v) => { if (v > 0) counts[v] = (counts[v] || 0) + 1; });
+            value = Number(Object.keys(counts).sort((x, y) => counts[y] - counts[x])[0]) || 0;
+        }
+        special[at0[0]][at0[1]] = null;
+        const targets = [at0];
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) if (grid[r][c] === value) targets.push([r, c]);
+        }
+        const now = performance.now();
+        combo = now - lastClearAt <= COMBO_WINDOW_MS ? combo + 1 : 1;
+        maxCombo = Math.max(maxCombo, combo);
+        const result = resolveClear(targets);
+        const feverMult = feverOn ? 2 : 1;
+        const points = Math.round(result.removed.length * 15 * comboMultiplier(combo) * (result.stars ? 2 : 1) * feverMult);
+        score += points;
+        animateClear(result);
+        fx('onTenChain', { cells: result.removed.map(cellEl), step: 3, points });
+        banner(`🌈 ${value} 모두!`, 3);
+        addTime(1);
+        addFever(20);
+        restartComboWindow();
+        popThenChain(result);
     }
 
     // Mixes the numbers (keeping the shape) until some swap can match. False if it can't.
@@ -1027,17 +1097,11 @@
         clearHint();
         breakCombo();
         endFever();
-        const left = leftSum();
-        const allClear = left === 0;
-        const perfect = !allClear && left <= 5;
-
         const best = loadBest();
         const newScore = score > (best.score || 0);
-        const newLeft = best.left === null || best.left === undefined || left < best.left;
         const isFirst = !best.plays;
         best.plays = (best.plays || 0) + 1;
         if (newScore) best.score = score;
-        if (newLeft) best.left = left;
         best.combo = Math.max(best.combo || 0, maxCombo);
         best.chain = Math.max(best.chain || 0, maxChain);
         saveBest(best);
@@ -1045,17 +1109,15 @@
         render();
         resultEl.replaceChildren();
         const card = el('div', 'tp-result-card');
-        const kicker = allClear || perfect ? '최고의 마무리' : reason === 'time' ? '⏱ 시간 종료' : '보너스 결과';
+        const kicker = reason === 'time' ? '⏱ 시간 종료' : '보너스 결과';
         card.append(el('span', 'tp-kicker', kicker));
         card.append(el('strong', 'tp-result-score', score.toLocaleString()));
         card.append(el('span', 'tp-result-unit', '점'));
 
         const record = newScore && !isFirst;
-        if (allClear || perfect || record) {
+        if (record) {
             const stamps = el('div', 'tp-stamps');
-            if (allClear) stamps.append(el('span', 'tp-stamp tp-stamp-perfect', 'ALL CLEAR'));
-            if (perfect) stamps.append(el('span', 'tp-stamp tp-stamp-perfect', 'PERFECT'));
-            if (record) stamps.append(el('span', 'tp-stamp tp-stamp-record', 'NEW RECORD'));
+            stamps.append(el('span', 'tp-stamp tp-stamp-record', 'NEW RECORD'));
             card.append(stamps);
         }
 
@@ -1066,9 +1128,8 @@
             if (note) line.append(el('em', '', note));
             rows.append(line);
         };
-        row('지운 칸 · 플레이 시간', `${cleared} / 81 · ${formatTime(playMs)}`);
-        row('최고 콤보 · 연쇄', `${maxCombo >= 2 ? `×${maxCombo}` : '-'} · ${maxChain ? maxChain : '-'}`);
-        row('남은 합', String(left), allClear ? '모두 비움' : `최소 기록 ${best.left}`);
+        row('터뜨린 칸 · 플레이 시간', `${cleared} · ${formatTime(playMs)}`);
+        row('최고 콤보 · 연쇄', `${maxCombo >= 2 ? `×${maxCombo}` : '-'} · ${maxChain ? maxChain : '-'}`, `기록 ×${best.combo || 0} · ${best.chain || 0}`);
         row('최고 점수', best.score.toLocaleString(), newScore ? '새 기록' : '');
         card.append(rows);
 
@@ -1084,7 +1145,7 @@
         resultEl.append(card);
         resultEl.hidden = false;
         requestAnimationFrame(() => resultEl.classList.add('active'));
-        if (cleared > 0) fx('onTenEnd', { perfect: allClear || perfect, record });
+        if (cleared > 0) fx('onTenEnd', { perfect: false, record });
     }
 
     // === Open / close ===
@@ -1099,7 +1160,7 @@
         Object.entries(SPECIALS).forEach(([type, count]) => {
             for (let n = 0; n < count; n++) {
                 const i = spots[k++];
-                special[Math.floor(i / SIZE)][i % SIZE] = { type, hp: type === 'ice' ? 2 : 1 };
+                special[Math.floor(i / SIZE)][i % SIZE] = { type, hp: 1 };
             }
         });
     }
