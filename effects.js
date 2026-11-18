@@ -184,6 +184,18 @@
             tone(N.E6, 0, 0.08, { type: 'sine', gain: 0.2, slideTo: N.C6 });
             tone(N.C6, 0.07, 0.1, { type: 'sine', gain: 0.2, slideTo: N.E6 });
         },
+        // Two special pieces merged: a deep boom under a bright rising sweep.
+        tenCombo() {
+            tone(110, 0, 0.45, { type: 'sawtooth', gain: 0.22, slideTo: 45 });
+            tone(N.C5, 0.02, 0.3, { type: 'square', gain: 0.1, slideTo: N.C7 });
+            [N.C6, N.E6, N.G6, N.C7].forEach((f, i) => tone(f, 0.12 + i * 0.05, 0.18, { type: 'triangle', gain: 0.22 }));
+        },
+        // Rush: a short bright stab that climbs with the rush level.
+        tenRush(level) {
+            const f = N.G5 * Math.pow(1.122, Math.min(level, 8) - 1);
+            tone(f, 0, 0.08, { type: 'square', gain: 0.12 });
+            tone(f * 1.5, 0.05, 0.12, { type: 'triangle', gain: 0.2 });
+        },
         tenJoker() {
             [N.C6, N.G6, N.E6, N.C7].forEach((f, i) => tone(f, i * 0.06, 0.16, { type: 'sine', gain: 0.2 }));
         },
@@ -757,6 +769,21 @@
                 const { x, y } = center(cell);
                 burst(x, y, 14, 4.5, ['#f97316', '#ef4444', '#fbbf24', '#78350f']);
             });
+        },
+
+        onTenCombo({ cells }) {
+            playSound('tenCombo');
+            vibrate('break');
+            if (!settings.boardFx || !cells) return;
+            cells.forEach((cell, i) => {
+                if (i % 2) return;   // half the cells are plenty of sparks
+                const { x, y } = center(cell);
+                burst(x, y, 10, 5, ['#fde047', '#f472b6', '#60a5fa', '#ffffff']);
+            });
+        },
+
+        onTenRush({ level }) {
+            playSound('tenRush', level);
         },
 
         onTenSwap() {

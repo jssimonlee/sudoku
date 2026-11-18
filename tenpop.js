@@ -15,6 +15,8 @@
 //   after every fall, any pair making 10 pops by itself (chains).
 // - Play never stops: while one spot pops and falls, the rest of the board can be swapped.
 //   Only moving cells are locked (a column above a gap, until what falls in has landed).
+// - Special combos: swapping two special pieces merges them into one big blast.
+// - Rush: a hand-made match while another spot is still moving scores ×1.5 and up.
 // - Fever: quick matches fill the fever gauge; when it is full, points are doubled for 10 seconds.
 // - Special cells: ★ doubles that match, 💣 also blows up its four neighbours (a few also drop in
 //   with the new numbers). Ice that needed two hits was dropped: it only got in the way.
@@ -105,6 +107,8 @@
     let feverEndsAt = 0;
     let feverLeftMs = 0;
     let hintShown = false;
+    let rush = 0;           // matches made by hand while another spot was still popping / falling
+    let maxRush = 0;
     // Cells in motion, so play can go on elsewhere while a spot pops and falls:
     let popping = new Set();    // cells (keys) popping right now
     let swapping = new Set();   // cells (keys) sliding in a swap
@@ -118,7 +122,7 @@
 
     // === DOM (built once, on first open) ===
     let root, boardEl, cells, timeEl, timeBox, scoreEl, comboEl, chainEl, gaugeEl,
-        feverBar, feverFill, hintEl, itemBtns, hintBtn, finishBtn, resultEl, wrapEl, pauseEl;
+        feverBar, feverFill, hintEl, itemBtns, hintBtn, finishBtn, resultEl, wrapEl, pauseEl, rushEl;
 
     function el(tag, className, text) {
         const node = document.createElement(tag);
@@ -196,7 +200,10 @@
         play.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 6v12l10-6z" fill="currentColor" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>';
         pauseEl.append(play, el('p', '', '일시정지 · 눌러서 계속하기'));
         pauseEl.addEventListener('click', resume);
-        wrapEl.append(boardEl, pauseEl);
+        rushEl = el('div', 'tp-rush');
+        rushEl.hidden = true;
+        rushEl.setAttribute('aria-hidden', 'true');
+        wrapEl.append(boardEl, rushEl, pauseEl);
 
         // The clock doubles as a pause button.
         timeBox.setAttribute('role', 'button');
@@ -350,7 +357,7 @@
                     const rr = r + dr;
                     const cc = c + dc;
                     if (!inside(rr, cc) || !g[rr][cc]) continue;
-                    if (g === grid && (isRainbow([r, c]) || isRainbow([rr, cc]))) return [[r, c], [rr, cc]];
+                    if (g === grid && (isRainbow([r, c]) || isRainbow([rr, cc]) || comboKind([r, c], [rr, cc]))) return [[r, c], [rr, cc]];
                     if (g[rr][cc] === g[r][c]) continue;
                     [g[r][c], g[rr][cc]] = [g[rr][cc], g[r][c]];
                     const found = swapMatches(g, [r, c], [rr, cc]).length > 0;
@@ -630,6 +637,13 @@
         };
         setTimeout(() => {
             if (id !== gameId || finished) return;
+            // Two special pieces swapped into each other merge into one big blast.
+            if (comboKind(a, b)) {
+                release();
+                fireCombo(a, b);
+                settleColumns(0);
+                return;
+            }
             // A rainbow piece swapped with a number pops every copy of that number.
             const rainbowAt = isRainbow(a) ? a : isRainbow(b) ? b : null;
             if (rainbowAt) {
@@ -699,10 +713,11 @@
             setTimeout(() => cell.classList.remove('tp-made'), 600);
         }
         const feverMult = feverOn ? 2 : 1;
+        const rushMult = bumpRush();
         const cross = matches.length >= 2;   // two or more pairs from one swap
         const base = matches.length * PAIR_POINTS;
-        const points = Math.round(base * (cross ? 1.5 : 1) * comboMultiplier(combo) *
-            (result.stars ? 2 : 1) * feverMult) + result.extra.length * 15 * feverMult;
+        const points = Math.round((base * (cross ? 1.5 : 1) * comboMultiplier(combo) *
+            (result.stars ? 2 : 1) + result.extra.length * 15) * feverMult * rushMult);
         score += points;
 
         fx('onTenClear', { cells: union.map(cellEl), combo, points, length: union.length, star: result.stars > 0, fever: feverOn });
@@ -791,7 +806,8 @@
     function animateClear(result) {
         result.removed.forEach((p) => cellEl(p).classList.add('tp-pop'));
         result.cracked.forEach((p) => cellEl(p).classList.add('tp-crack'));
-        if (result.bombs || result.lines || result.rainbows) {
+        // A merged combo has its own banner, sound and time bonus.
+        if (!result.quiet && (result.bombs || result.lines || result.rainbows)) {
             fx('onTenBomb', { cells: result.extra.map(cellEl) });
             banner(result.rainbows ? '🌈 무지개!' : result.lines ? '⚡ 줄 폭발!' : '💣 BOOM!', result.lines || result.rainbows ? 3 : 2);
             if (result.lines || result.rainbows) addTime(1);
@@ -913,6 +929,7 @@
     // Everything has landed: shuffle if no swap can match any more.
     function checkIdle() {
         if (finished || !isIdle()) return;
+        endRush();
         renderStats();
         checkStuck();
     }
@@ -971,6 +988,117 @@
         return Boolean(special[r] && special[r][c] && special[r][c].type === 'rainbow');
     }
 
+    // === Rush ===
+    // A match made by hand while another spot is still popping or falling counts as a rush:
+    // ×1.5 for the first, +0.25 for each one after (up to ×2.5) until the board comes to rest.
+    function bumpRush() {
+        if (!popping.size && !locks.length && !holes.size) return 1;
+        rush++;
+        maxRush = Math.max(maxRush, rush);
+        rushEl.textContent = rush >= 2 ? `RUSH ×${rush}` : 'RUSH!';
+        rushEl.hidden = false;
+        rushEl.classList.remove('tp-rush-bump');
+        void rushEl.offsetWidth;
+        rushEl.classList.add('tp-rush-bump');
+        fx('onTenRush', { level: rush });
+        return rushMultiplier(rush);
+    }
+
+    function rushMultiplier(level) {
+        return level > 0 ? Math.min(2.5, 1.25 + 0.25 * level) : 1;
+    }
+
+    function endRush() {
+        rush = 0;
+        rushEl.hidden = true;
+    }
+
+    // === Special combos ===
+    // Two special pieces swapped into each other merge (★ and 🃏 don't count):
+    // ⚡+⚡ a cross, ⚡+💣 a cross three cells wide, 💣+💣 a 5×5 blast,
+    // 🌈+⚡ / 🌈+💣 every copy of the most common number turns into that piece and goes off,
+    // 🌈+🌈 the whole board.
+    const COMBO_TYPES = ['line', 'bomb', 'rainbow'];
+
+    function comboKind(a, b) {
+        const sa = special[a[0]][a[1]];
+        const sb = special[b[0]][b[1]];
+        if (!sa || !sb || at(a) === JOKER || at(b) === JOKER) return null;
+        if (!COMBO_TYPES.includes(sa.type) || !COMBO_TYPES.includes(sb.type)) return null;
+        return [sa.type, sb.type].sort().join('+');
+    }
+
+    function mostCommonNumber() {
+        const counts = {};
+        grid.flat().forEach((v) => { if (v > 0) counts[v] = (counts[v] || 0) + 1; });
+        return Number(Object.keys(counts).sort((x, y) => counts[y] - counts[x])[0]) || 0;
+    }
+
+    function fireCombo(a, b) {
+        const kind = comboKind(a, b);
+        const [r, c] = b;   // the blast is centred where the dragged piece landed
+        special[a[0]][a[1]] = null;
+        special[b[0]][b[1]] = null;
+        const targets = [a, b];
+        const add = (rr, cc) => { if (inside(rr, cc)) targets.push([rr, cc]); };
+        let label;
+        if (kind === 'line+line' || kind === 'bomb+line') {
+            const reach = kind === 'line+line' ? 0 : 1;
+            for (let d = -reach; d <= reach; d++) {
+                for (let k = 0; k < SIZE; k++) {
+                    add(r + d, k);
+                    add(k, c + d);
+                }
+            }
+            label = kind === 'line+line' ? '✚ 십자 폭발!' : '✚ 대형 십자!';
+        } else if (kind === 'bomb+bomb') {
+            for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) add(r + dr, c + dc);
+            label = '💥 메가 폭탄!';
+        } else if (kind === 'rainbow+rainbow') {
+            for (let rr = 0; rr < SIZE; rr++) for (let cc = 0; cc < SIZE; cc++) add(rr, cc);
+            label = '🌈 판 전체!';
+        } else {
+            // 🌈 + ⚡ / 💣: every copy of the most common number becomes that piece and goes off.
+            const type = kind === 'line+rainbow' ? 'line' : 'bomb';
+            const value = mostCommonNumber();
+            for (let rr = 0; rr < SIZE; rr++) {
+                for (let cc = 0; cc < SIZE; cc++) {
+                    if (grid[rr][cc] !== value || popping.has(rr * SIZE + cc)) continue;
+                    special[rr][cc] = type === 'line'
+                        ? { type: 'line', hp: 1, dir: Math.random() < 0.5 ? 'h' : 'v' }
+                        : { type: 'bomb', hp: 1 };
+                    targets.push([rr, cc]);
+                }
+            }
+            label = type === 'line' ? `🌈 ${value} 전부 ⚡!` : `🌈 ${value} 전부 💣!`;
+        }
+        const now = performance.now();
+        combo = now - lastClearAt <= COMBO_WINDOW_MS ? combo + 1 : 1;
+        maxCombo = Math.max(maxCombo, combo);
+        const rushMult = bumpRush();
+        const result = resolveClear(targets);
+        result.quiet = true;
+        const feverMult = feverOn ? 2 : 1;
+        const points = Math.round(result.removed.length * 20 * comboMultiplier(combo) *
+            (result.stars ? 2 : 1) * feverMult * rushMult);
+        score += points;
+        fx('onTenCombo', { cells: result.removed.map(cellEl) });
+        fx('onTenChain', { cells: result.removed.slice(0, 1).map(cellEl), step: 4, points });
+        banner(label, 3);
+        quake();
+        addTime(2);
+        addFever(25);
+        restartComboWindow();
+        launchClear(result, 0);
+    }
+
+    function quake() {
+        boardEl.classList.remove('tp-quake');
+        void boardEl.offsetWidth;
+        boardEl.classList.add('tp-quake');
+        setTimeout(() => boardEl.classList.remove('tp-quake'), 450);
+    }
+
     // A rainbow piece was swapped with `other`: every copy of that number pops (a joker or
     // another rainbow takes the most common number).
     function fireRainbow(at0, other) {
@@ -988,9 +1116,10 @@
         const now = performance.now();
         combo = now - lastClearAt <= COMBO_WINDOW_MS ? combo + 1 : 1;
         maxCombo = Math.max(maxCombo, combo);
+        const rushMult = bumpRush();
         const result = resolveClear(targets);
         const feverMult = feverOn ? 2 : 1;
-        const points = Math.round(result.removed.length * 15 * comboMultiplier(combo) * (result.stars ? 2 : 1) * feverMult);
+        const points = Math.round(result.removed.length * 15 * comboMultiplier(combo) * (result.stars ? 2 : 1) * feverMult * rushMult);
         score += points;
         fx('onTenChain', { cells: result.removed.map(cellEl), step: 3, points });
         banner(`🌈 ${value} 모두!`, 3);
@@ -1271,6 +1400,9 @@
         playMs = 0;
         lastBeep = 0;
         hintShown = false;
+        rush = 0;
+        maxRush = 0;
+        rushEl.hidden = true;
         popping = new Set();
         swapping = new Set();
         locks = [];

@@ -4552,3 +4552,51 @@ body.tp-open {
     filter: saturate(0.55) brightness(0.9);
     opacity: 0.82;
 }
+
+/* 합 10 지우기: RUSH badge (hand-made matches while a chain is still running) */
+.tp-rush {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    z-index: 6;
+    pointer-events: none;
+    font-size: 1.05rem;
+    font-weight: 900;
+    font-style: italic;
+    letter-spacing: 1px;
+    color: #fff;
+    paint-order: stroke fill;
+    -webkit-text-stroke: 5px #dc2626;
+    text-shadow: 0 2px 0 rgba(15, 23, 42, 0.2);
+    transform-origin: right center;
+}
+
+.tp-rush[hidden] { display: none !important; }
+
+.tp-rush.tp-rush-bump {
+    animation: tpRushBump 0.32s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+
+@keyframes tpRushBump {
+    0% { transform: scale(1.7) rotate(-6deg); }
+    100% { transform: scale(1) rotate(0); }
+}
+
+/* Merged special combos shake the board */
+.tp-board.tp-quake {
+    animation: tpQuake 0.45s ease-out;
+}
+
+@keyframes tpQuake {
+    0%, 100% { transform: translate(0, 0); }
+    15% { transform: translate(-5px, 3px); }
+    30% { transform: translate(5px, -3px); }
+    45% { transform: translate(-4px, -2px); }
+    60% { transform: translate(3px, 2px); }
+    80% { transform: translate(-1px, 1px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tp-board.tp-quake,
+    .tp-rush.tp-rush-bump { animation: none; }
+}
