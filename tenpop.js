@@ -131,6 +131,23 @@
         return node;
     }
 
+    const artNames = {
+        '★': 'star', '💣': 'bomb', '⚡': 'line', '🌈': 'rainbow', '🃏': 'joker',
+        '🔨': 'hammer', '💡': 'hint', '🔥': 'fever', '🔀': 'shuffle',
+        '⏱': 'time', '✚': 'cross', '💥': 'mega'
+    };
+
+    function setArtText(node, text) {
+        const parts = text.split(/([★💣⚡🌈🃏🔨💡🔥🔀⏱✚💥])/u);
+        node.replaceChildren(...parts.map(part => {
+            if (!artNames[part]) return part;
+            const image = el('img', 'tp-inline-art');
+            image.src = `assets/tenpop/milk-sherbet/${artNames[part]}.webp`;
+            image.alt = part;
+            return image;
+        }));
+    }
+
     function stat(label, id) {
         const box = el('div', 'tp-stat');
         box.append(el('span', '', label));
@@ -223,7 +240,9 @@
             btn.type = 'button';
             btn.dataset.item = type;
             btn.setAttribute('aria-label', info.name);
-            btn.append(el('span', 'tp-item-icon', info.icon), el('span', 'tp-item-name', info.name), el('b', 'tp-item-count', '0'));
+            const icon = el('span', 'tp-item-icon');
+            setArtText(icon, info.icon);
+            btn.append(icon, el('span', 'tp-item-name', info.name), el('b', 'tp-item-count', '0'));
             btn.addEventListener('click', () => toggleItem(type));
             itemBar.append(btn);
             itemBtns[type] = btn;
@@ -412,7 +431,7 @@
         chainEl.textContent = maxChain ? String(maxChain) : '-';
         comboEl.textContent = combo >= 2 ? `×${combo}` : '-';
         finishBtn.disabled = finished;
-        hintBtn.textContent = `💡 힌트 ${hintsLeft}`;
+        setArtText(hintBtn, `💡 힌트 ${hintsLeft}`);
         hintBtn.disabled = finished || hintsLeft <= 0;
         renderItems();
         renderFever();
@@ -452,12 +471,13 @@
                 text = '이웃한 두 칸을 바꿔 3·7, 4·6처럼 합 10 짝을 붙이세요';
             }
         }
-        hintEl.textContent = text;
+        setArtText(hintEl, text);
         hintEl.dataset.tone = tone;
     }
 
     function banner(text, tier) {
-        const node = el('div', `tp-banner tp-banner-${tier}`, text);
+        const node = el('div', `tp-banner tp-banner-${tier}`);
+        setArtText(node, text);
         wrapEl.append(node);
         setTimeout(() => node.remove(), 950);
     }
@@ -504,7 +524,7 @@
         hintsLeft--;
         hintShown = true;
         swap.forEach((p) => cellEl(p).classList.add('tp-hinting'));
-        hintBtn.textContent = `💡 힌트 ${hintsLeft}`;
+        setArtText(hintBtn, `💡 힌트 ${hintsLeft}`);
         hintBtn.disabled = hintsLeft <= 0;
         fx('onTenPick');
     }
@@ -1326,7 +1346,9 @@
         resultEl.replaceChildren();
         const card = el('div', 'tp-result-card');
         const kicker = reason === 'time' ? '⏱ 시간 종료' : '보너스 결과';
-        card.append(el('span', 'tp-kicker', kicker));
+        const heading = el('span', 'tp-kicker');
+        setArtText(heading, kicker);
+        card.append(heading);
         card.append(el('strong', 'tp-result-score', score.toLocaleString()));
         card.append(el('span', 'tp-result-unit', '점'));
 
