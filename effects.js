@@ -759,6 +759,10 @@
             });
         },
 
+        onTenSwap() {
+            playSound('tenSwap');
+        },
+
         onTenTick({ sec }) {
             playSound('tenTick', sec);
         },

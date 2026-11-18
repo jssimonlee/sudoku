@@ -4127,3 +4127,44 @@ body.tp-open {
         animation: none;
     }
 }
+
+/* --- 합 10 지우기: swap to match --- */
+/* A swapped cell glides in from where its partner was (one cell = 100% + the 4px gap) */
+.tp-cell.tp-slide {
+    animation: tpSlide 0.16s ease-out;
+    z-index: 2;
+}
+
+@keyframes tpSlide {
+    from { transform: translate(calc(var(--sx, 0) * (100% + 4px)), calc(var(--sy, 0) * (100% + 4px))); }
+    to { transform: translate(0, 0); }
+}
+
+/* Idle hint: the two cells of a good swap wiggle gently */
+.tp-cell.tp-hinting {
+    animation: tpHintWiggle 0.9s ease-in-out infinite;
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.85), 0 2px 8px rgba(250, 204, 21, 0.35);
+}
+
+@keyframes tpHintWiggle {
+    0%, 100% { transform: rotate(0deg) scale(1); }
+    25% { transform: rotate(-6deg) scale(1.05); }
+    75% { transform: rotate(6deg) scale(1.05); }
+}
+
+.tp-cell.tp-anchor {
+    background: #dbeafe;
+    box-shadow: 0 0 0 2.5px #3b82f6;
+    transform: scale(1.06);
+}
+
+.tp-actions.tp-actions-single {
+    grid-template-columns: 1fr;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .tp-cell.tp-slide,
+    .tp-cell.tp-hinting {
+        animation: none;
+    }
+}
