@@ -273,8 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openTenPopRandom() {
         if (!window.TenPop) return;
         if (canPlay()) togglePause();
-        const randomBoard = Array.from({ length: 9 }, () => Array.from({ length: 9 }, () => 1 + Math.floor(Math.random() * 9)));
-        window.TenPop.open(randomBoard);
+        window.TenPop.openRandom();
     }
     btnNewGame.addEventListener('click', initGame);
     overlayBtn.addEventListener('click', () => {

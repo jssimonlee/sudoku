@@ -4168,3 +4168,10 @@ body.tp-open {
         animation: none;
     }
 }
+
+/* 💡 hint button (3 per game) */
+.tp-btn.tp-btn-hint {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1.5px solid rgba(245, 158, 11, 0.5);
+}

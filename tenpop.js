@@ -6,19 +6,21 @@
 //
 // Extras:
 // - Time survival: 60 seconds to start; every match buys a little more time.
-// - Chain: after a fall, new pairs making 10 that formed on their own pop too, again and again.
+// - No ready-made 10s: a touching pair making 10 never stays on the board. A random board is
+//   dealt without any; a solved Sudoku board has a few numbers trade places until it has none;
+//   after every fall, any pair making 10 pops by itself (chains).
 // - Fever: quick matches fill the fever gauge; when it is full, points are doubled for 10 seconds.
 // - Special cells: ★ doubles that match, 💣 also blows up its four neighbours, 🧊 needs two hits.
 // - Items (won by combos and fever): 🔨 breaks one cell, 🌈 pops every copy of a number,
 //   🃏 turns a cell into a joker that counts as whatever number makes the match.
-// - Stuck boards are shuffled automatically; standing still for a while shows a hint.
+// - Stuck boards are shuffled automatically; the 💡 button (3 per game) shows a good swap.
 (() => {
     const SIZE = 9;
     const COMBO_WINDOW_MS = 2500;
     const SWAP_MS = 160;
     const POP_MS = 180;
     const CHAIN_WAIT_MS = 260;      // after the fall, before a chain pops
-    const HINT_MS = 3500;
+    const HINTS_PER_GAME = 3;
     const FEVER_MS = 10000;
     const FEVER_MAX = 100;
     const SPECIALS = { star: 3, bomb: 2, ice: 2 };
@@ -98,7 +100,7 @@
     let timerId = null;
     let lastTick = 0;
     let lastBeep = 0;
-    let idleSince = 0;
+    let hintsLeft = HINTS_PER_GAME;
     let hintShown = false;
     let busy = false;
     let finished = false;
@@ -108,7 +110,7 @@
 
     // === DOM (built once, on first open) ===
     let root, boardEl, cells, timeEl, timeBox, scoreEl, comboEl, leftEl, gaugeEl,
-        feverBar, feverFill, hintEl, itemBtns, finishBtn, resultEl, wrapEl;
+        feverBar, feverFill, hintEl, itemBtns, hintBtn, finishBtn, resultEl, wrapEl;
 
     function el(tag, className, text) {
         const node = document.createElement(tag);
@@ -198,11 +200,14 @@
             itemBtns[type] = btn;
         });
 
-        const actions = el('div', 'tp-actions tp-actions-single');
+        const actions = el('div', 'tp-actions');
+        hintBtn = el('button', 'tp-btn tp-btn-hint');
+        hintBtn.type = 'button';
+        hintBtn.addEventListener('click', useHint);
         finishBtn = el('button', 'tp-btn tp-btn-ghost', '그만하기');
         finishBtn.type = 'button';
         finishBtn.addEventListener('click', () => finish('quit'));
-        actions.append(finishBtn);
+        actions.append(hintBtn, finishBtn);
 
         inner.append(head, hud, gauge, feverBar, wrapEl, hintEl, itemBar, actions);
         root.append(inner, resultEl);
@@ -354,6 +359,8 @@
         leftEl.textContent = String(leftSum());
         comboEl.textContent = combo >= 2 ? `×${combo}` : '-';
         finishBtn.disabled = finished;
+        hintBtn.textContent = `💡 힌트 ${hintsLeft}`;
+        hintBtn.disabled = finished || hintsLeft <= 0;
         renderItems();
         renderFever();
         renderTime();
@@ -390,7 +397,7 @@
                 text = '🔥 FEVER! 점수 2배';
                 tone = 'hot';
             } else {
-                text = '이웃한 두 칸을 바꿔서 3·7처럼 합 10을 붙이세요 (세 칸이면 10·20)';
+                text = '두 칸을 바꿔 3·7처럼 합 10을 붙이세요 (세 칸은 10·20)';
             }
         }
         hintEl.textContent = text;
@@ -424,7 +431,6 @@
             lastBeep = sec;
             fx('onTenTick', { sec });
         }
-        if (!hintShown && !press && !itemMode && now - idleSince > HINT_MS) showHint();
     }
 
     function addTime(seconds) {
@@ -437,15 +443,21 @@
         setTimeout(() => pop.remove(), 900);
     }
 
-    function showHint() {
+    // 💡: the two cells of a good swap wiggle until the next move.
+    function useHint() {
+        if (finished || busy || hintsLeft <= 0 || hintShown) return;
+        if (itemMode) cancelItem();
         const swap = findSwap();
         if (!swap) return;
+        hintsLeft--;
         hintShown = true;
         swap.forEach((p) => cellEl(p).classList.add('tp-hinting'));
+        hintBtn.textContent = `💡 힌트 ${hintsLeft}`;
+        hintBtn.disabled = hintsLeft <= 0;
+        fx('onTenPick');
     }
 
     function clearHint() {
-        idleSince = performance.now();
         if (!hintShown) return;
         hintShown = false;
         cells.forEach((cell) => cell.classList.remove('tp-hinting'));
@@ -690,17 +702,17 @@
         }, POP_MS);
     }
 
-    // After a fall: pairs making 10 that formed on their own (three-cell lines form so easily
-    // that they would empty the board by themselves). A pair only counts if its cells fell
-    // different distances (cells that fell together were already touching before).
-    function findChainMatches(drops) {
+    // Every touching pair (row or column) making 10 anywhere on the board. These never stay:
+    // they pop after each fall (chains), and the board starts without any. Three-cell lines only pop
+    // when a swap makes them (they form so easily that they would empty the board by
+    // themselves), and a joker only matches through a swap too.
+    function findChainMatches() {
         const taken = new Set();
         const found = [];
-        const skip = (line) => line.some((p) => taken.has(keyOf(p))) ||
-            new Set(line.map(([r, c]) => drops[r][c])).size < 2;
+        const skip = (line) => line.some((p) => taken.has(keyOf(p)) || at(p) === JOKER);
         for (let r = SIZE - 1; r >= 0; r--) {
             for (let c = 0; c < SIZE; c++) {
-                if (!grid[r][c] || !drops[r][c] || taken.has(r * SIZE + c)) continue;
+                if (grid[r][c] <= 0 || taken.has(r * SIZE + c)) continue;
                 const best = bestLineThrough(grid, [r, c], skip, [2]);
                 if (!best) continue;
                 best.line.forEach((p) => taken.add(keyOf(p)));
@@ -712,7 +724,7 @@
 
     function runChain(drops, step, id) {
         if (finished || id !== gameId) return;
-        const matches = step <= 12 ? findChainMatches(drops) : [];
+        const matches = step <= 20 ? findChainMatches() : [];
         if (!matches.length) {
             settle(id);
             return;
@@ -816,7 +828,7 @@
             }
             const trial = grid.map((row) => row.slice());
             spots.forEach(([r, c], i) => { trial[r][c] = order[i][0]; });
-            if (!findSwap(trial)) continue;
+            if (hasPair(trial) || !findSwap(trial)) continue;
             spots.forEach(([r, c], i) => {
                 grid[r][c] = order[i][0];
                 special[r][c] = order[i][1];
@@ -1084,12 +1096,99 @@
         feverBar.classList.remove('on');
         resultEl.hidden = true;
         resultEl.classList.remove('active');
+        hintsLeft = HINTS_PER_GAME;
         render();
-        if (!findSwap()) autoShuffle();
-        clearHint();
         clearInterval(timerId);
         lastTick = performance.now();
         timerId = setInterval(tick, 100);
+        // A solved board comes with pairs that already make 10. Popping them all at once
+        // set off chains that emptied most of the board before play began, so instead a few
+        // of those numbers trade places with others until no pair is left.
+        const moved = hasPair(grid) ? defusePairs(grid) : [];
+        if (moved.length) {
+            render();
+            moved.forEach((p) => {
+                const cell = cellEl(p);
+                cell.classList.add('tp-mix');
+                setTimeout(() => cell.classList.remove('tp-mix'), 420);
+            });
+            banner('판 정리', 1);
+        }
+        if (!findSwap()) autoShuffle();
+    }
+
+    function countPairs(g) {
+        let n = 0;
+        for (let r = 0; r < SIZE; r++) {
+            for (let c = 0; c < SIZE; c++) {
+                const v = g[r][c];
+                if (v <= 0) continue;
+                if (c + 1 < SIZE && g[r][c + 1] > 0 && v + g[r][c + 1] === 10) n++;
+                if (r + 1 < SIZE && g[r + 1][c] > 0 && v + g[r + 1][c] === 10) n++;
+            }
+        }
+        return n;
+    }
+
+    // Swaps one number of a ready-made pair with a random cell elsewhere, keeping only swaps
+    // that don't add pairs, until none is left. Returns the cells that changed.
+    function defusePairs(g) {
+        const changed = new Set();
+        let pairs = countPairs(g);
+        for (let i = 0; i < 4000 && pairs > 0; i++) {
+            const list = [];
+            for (let r = 0; r < SIZE; r++) {
+                for (let c = 0; c < SIZE; c++) {
+                    const v = g[r][c];
+                    if (v <= 0) continue;
+                    if (c + 1 < SIZE && v + g[r][c + 1] === 10) list.push([[r, c], [r, c + 1]]);
+                    if (r + 1 < SIZE && v + g[r + 1][c] === 10) list.push([[r, c], [r + 1, c]]);
+                }
+            }
+            const pair = list[Math.floor(Math.random() * list.length)];
+            const a = pair[Math.floor(Math.random() * 2)];
+            const b = [Math.floor(Math.random() * SIZE), Math.floor(Math.random() * SIZE)];
+            if (same(a, b) || g[b[0]][b[1]] <= 0 || g[b[0]][b[1]] === g[a[0]][a[1]]) continue;
+            [g[a[0]][a[1]], g[b[0]][b[1]]] = [g[b[0]][b[1]], g[a[0]][a[1]]];
+            const next = countPairs(g);
+            if (next < pairs) {
+                pairs = next;
+                changed.add(keyOf(a));
+                changed.add(keyOf(b));
+            } else {
+                [g[a[0]][a[1]], g[b[0]][b[1]]] = [g[b[0]][b[1]], g[a[0]][a[1]]];
+            }
+        }
+        return [...changed].map((k) => [Math.floor(k / SIZE), k % SIZE]);
+    }
+
+    // Any touching pair of numbers (row or column) making 10?
+    function hasPair(g) {
+        return countPairs(g) > 0;
+    }
+
+    // Random numbers, dealt so that no touching pair already makes 10.
+    function randomBoard() {
+        for (let attempt = 0; attempt < 50; attempt++) {
+            const g = [];
+            for (let r = 0; r < SIZE; r++) {
+                g.push([]);
+                for (let c = 0; c < SIZE; c++) {
+                    const banned = new Set();
+                    if (c > 0) banned.add(10 - g[r][c - 1]);
+                    if (r > 0) banned.add(10 - g[r - 1][c]);
+                    const choices = [1, 2, 3, 4, 5, 6, 7, 8, 9].filter((v) => !banned.has(v));
+                    g[r].push(choices[Math.floor(Math.random() * choices.length)]);
+                }
+            }
+            if (findSwap(g)) return g;
+        }
+        return null;
+    }
+
+    function openRandom() {
+        const g = randomBoard();
+        return g ? open(g) : false;
     }
 
     function open(solved) {
@@ -1116,5 +1215,5 @@
         setTimeout(() => { if (!root.classList.contains('active')) root.hidden = true; }, 200);
     }
 
-    window.TenPop = { open, close, isOpen: () => Boolean(root && !root.hidden) };
+    window.TenPop = { open, openRandom, close, isOpen: () => Boolean(root && !root.hidden) };
 })();
