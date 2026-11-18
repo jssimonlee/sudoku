@@ -3812,3 +3812,163 @@ body.tp-open {
         animation: none;
     }
 }
+
+/* --- 합 10 지우기: paths, special cells, fever --- */
+.tp-board {
+    position: relative;
+}
+
+/* The path being drawn: a rounded line through the cell centers, above the cells */
+.tp-path {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    pointer-events: none;
+    overflow: visible;
+}
+
+.tp-path polyline {
+    fill: none;
+    stroke: rgba(59, 130, 246, 0.5);
+    stroke-width: 12;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tp-path[data-state="ok"] polyline { stroke: rgba(16, 185, 129, 0.65); }
+.tp-path[data-state="over"] polyline { stroke: rgba(239, 68, 68, 0.45); }
+
+/* Special cells: a small badge in the corner */
+.tp-cell {
+    position: relative;
+}
+
+.tp-cell.tp-star::after,
+.tp-cell.tp-bomb::after {
+    position: absolute;
+    top: 1px;
+    right: 2px;
+    font-size: 0.62em;
+    line-height: 1;
+    pointer-events: none;
+}
+
+.tp-cell.tp-star::after { content: "★"; color: #f59e0b; }
+.tp-cell.tp-bomb::after { content: "💣"; font-size: 0.55em; }
+
+.tp-cell.tp-star {
+    background: linear-gradient(160deg, #fffbeb, #fff);
+    box-shadow: 0 0 0 1.5px rgba(245, 158, 11, 0.55), 0 2px 6px rgba(245, 158, 11, 0.2);
+}
+
+.tp-cell.tp-bomb {
+    background: linear-gradient(160deg, #fff1f2, #fff);
+    box-shadow: 0 0 0 1.5px rgba(239, 68, 68, 0.45), 0 2px 6px rgba(239, 68, 68, 0.15);
+}
+
+/* Ice: frosted until it is hit twice; the first hit leaves a crack */
+.tp-cell.tp-ice {
+    background: linear-gradient(145deg, #e0f2fe, #f0f9ff 55%, #bae6fd);
+    box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.7), 0 2px 6px rgba(56, 189, 248, 0.25);
+}
+
+.tp-cell.tp-ice::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.85) 0 18%, transparent 19% 100%);
+    pointer-events: none;
+}
+
+.tp-cell.tp-ice.tp-ice-cracked {
+    background: linear-gradient(145deg, #f0f9ff, #fff);
+    box-shadow: inset 0 0 0 1.5px rgba(56, 189, 248, 0.45);
+}
+
+.tp-cell.tp-ice.tp-ice-cracked::after {
+    inset: 0;
+    background:
+        linear-gradient(35deg, transparent 47%, rgba(14, 165, 233, 0.55) 48% 52%, transparent 53%),
+        linear-gradient(-60deg, transparent 47%, rgba(14, 165, 233, 0.4) 48% 51%, transparent 52%);
+}
+
+.tp-cell.tp-crack {
+    animation: tpShake 0.3s ease;
+}
+
+.tp-cell.tp-sel.tp-star,
+.tp-cell.tp-sel.tp-bomb,
+.tp-cell.tp-sel.tp-ice {
+    background: #dbeafe;
+}
+
+.tp-cell.tp-sel-ok.tp-star,
+.tp-cell.tp-sel-ok.tp-bomb,
+.tp-cell.tp-sel-ok.tp-ice {
+    background: #bbf7d0;
+}
+
+/* Fever gauge: fills with each clear; when full it burns and drains over 10 seconds */
+.tp-fever {
+    position: relative;
+    height: 14px;
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.06);
+    overflow: hidden;
+}
+
+.tp-fever i {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, #fbbf24, #f97316, #ef4444);
+    transform-origin: left center;
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.tp-fever span {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: rgba(15, 23, 42, 0.45);
+}
+
+.tp-fever.on i {
+    transition: none;
+    animation: tpFeverDrain 10s linear forwards;
+    background: linear-gradient(90deg, #f472b6, #f59e0b, #ef4444, #f472b6);
+    background-size: 200% 100%;
+}
+
+.tp-fever.on span {
+    color: #fff;
+}
+
+@keyframes tpFeverDrain {
+    from { transform: scaleX(1); background-position: 0 0; }
+    to { transform: scaleX(0); background-position: 200% 0; }
+}
+
+.tp-fever-on .tp-board-wrap {
+    animation: tpFeverGlow 0.9s ease-in-out infinite alternate;
+    background: linear-gradient(160deg, #fff7ed, #fdf2f8);
+}
+
+@keyframes tpFeverGlow {
+    from { box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.5), 0 0 18px rgba(249, 115, 22, 0.35); }
+    to { box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.6), 0 0 30px rgba(244, 114, 182, 0.45); }
+}
+
+.tp-hint[data-tone="hot"] { color: #ea580c; }
+
+@media (prefers-reduced-motion: reduce) {
+    .tp-fever-on .tp-board-wrap { animation: none; }
+}

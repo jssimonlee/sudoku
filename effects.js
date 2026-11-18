@@ -145,6 +145,25 @@
             tone(f * 2, 0.04, 0.18, { type: 'sine', gain: 0.22 });
             if (length >= 4) [N.C7, N.G6 * 2].forEach((x, i) => tone(x, 0.1 + i * 0.06, 0.12, { type: 'sine', gain: 0.1 }));
         },
+        // Drawing a path: a soft tick that climbs per cell; a bright "ding" the moment it makes 10.
+        tenStep({ len, sum }) {
+            if (sum === 10) {
+                tone(N.C7, 0, 0.14, { type: 'sine', gain: 0.22 });
+                tone(N.G6, 0.03, 0.12, { type: 'triangle', gain: 0.08 });
+                return;
+            }
+            const f = RHYTHM_NOTES[Math.min(len, RHYTHM_NOTES.length) - 1] / 2;
+            tone(f, 0, 0.05, { type: 'sine', gain: sum > 10 ? 0.08 : 0.14, slideTo: sum > 10 ? f * 0.8 : null });
+        },
+        // Chain: a quick rising arpeggio that starts higher on every step.
+        tenChain(step) {
+            const base = [N.C5, N.E5, N.G5, N.C6][Math.min(step, 4) - 1];
+            [1, 1.25, 1.5, 2].forEach((m, i) => tone(base * m, i * 0.045, 0.16, { type: 'triangle', gain: 0.3 }));
+        },
+        tenFever() {
+            [N.C6, N.E6, N.G6, N.C7].forEach((f, i) => tone(f, i * 0.07, 0.2, { type: 'square', gain: 0.12 }));
+            tone(N.C7 * 1.5, 0.3, 0.5, { type: 'sine', gain: 0.18 });
+        },
         tenMiss() {
             tone(200, 0, 0.12, { type: 'triangle', gain: 0.25, slideTo: 140 });
         },
@@ -691,11 +710,43 @@
             playSound('tenPick');
         },
 
-        onTenClear({ cells, combo, points, length }) {
+        onTenStep({ len, sum }) {
+            playSound('tenStep', { len, sum });
+            if (sum === 10) vibrate('tap');
+        },
+
+        onTenChain({ cells, step, points }) {
+            playSound('tenChain', step);
+            vibrate(3);
+            if (!settings.boardFx || !cells || !cells.length) return;
+            cells.forEach((cell) => {
+                const { x, y } = center(cell);
+                burst(x, y, 12, 3.8, COLORS);
+            });
+            floatText(`+${points}`, cells[0], step >= 3 ? 4 : 3);
+        },
+
+        onTenBomb({ cells }) {
+            playSound('break');
+            vibrate('break');
+            if (!settings.boardFx || !cells) return;
+            cells.forEach((cell) => {
+                const { x, y } = center(cell);
+                burst(x, y, 14, 4.5, ['#f97316', '#ef4444', '#fbbf24', '#78350f']);
+            });
+        },
+
+        onTenFever({ on }) {
+            if (!on) return;
+            playSound('tenFever');
+            vibrate(4);
+        },
+
+        onTenClear({ cells, combo, points, length, star, fever }) {
             playSound('tenClear', { combo, length });
             vibrate(combo >= 5 || length >= 5 ? 3 : 'tap');
             if (!settings.boardFx || !cells || !cells.length) return;
-            const palette = combo >= 5 ? COLORS : combo >= 3 ? COLORS.concat(BOARD_COLORS) : BOARD_COLORS;
+            const palette = star || fever ? COLORS : combo >= 5 ? COLORS : combo >= 3 ? COLORS.concat(BOARD_COLORS) : BOARD_COLORS;
             cells.forEach((cell) => {
                 const { x, y } = center(cell);
                 burst(x, y, combo >= 3 ? 10 : 6, combo >= 3 ? 3.6 : 2.8, palette);
