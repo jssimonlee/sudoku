@@ -49,13 +49,13 @@
     const skipBtn = document.getElementById('lb-skip');
     const sendBtn = document.getElementById('lb-send');
     const resultEl = document.getElementById('lb-result');
-    const boardSelect = document.getElementById('lb-board');
+    const tabsEl = document.getElementById('lb-tabs');
+    const levelsEl = document.getElementById('lb-levels');
+    const metricEl = document.getElementById('lb-metric');
+    const captionEl = document.getElementById('lb-caption');
     const headMain = document.getElementById('lb-head-main');
     const table = document.getElementById('lb-table');
     const statusEl = document.getElementById('lb-status');
-    const switchBtn = document.getElementById('lb-switch');
-    const switchLabel = document.getElementById('lb-switch-label');
-    const switchIcon = switchBtn && switchBtn.querySelector('i');
 
     if (!apiBase || !modal) {
         window.Leaderboard = { onWin() {}, onTenPopEnd() {}, showTenPop: null };
@@ -167,8 +167,6 @@
 
     // === Modal ===
     function openModal() {
-        buildBoardSelect();   // the daily option carries today's date
-        boardSelect.value = boardKey(view.kind, view.difficulty);
         returnFocus = document.activeElement;
         modal.hidden = false;
     }
@@ -185,37 +183,6 @@
         statusEl.hidden = !text;
     }
 
-    // Dropdown with today's daily board and the 12 regular boards, grouped by mode.
-    function buildBoardSelect() {
-        boardSelect.replaceChildren();
-        const today = todayKey();
-        const dailyGroup = document.createElement('optgroup');
-        dailyGroup.label = KIND_LABEL[DAILY];
-        const dailyOpt = document.createElement('option');
-        dailyOpt.value = boardKey(DAILY, today);
-        dailyOpt.textContent = `📅 ${KIND_LABEL[DAILY]} · ${slotLabel(DAILY, today)}`;
-        dailyGroup.appendChild(dailyOpt);
-        boardSelect.appendChild(dailyGroup);
-        ['normal', 'combo-time', 'combo-score'].forEach((kind) => {
-            const group = document.createElement('optgroup');
-            group.label = KIND_LABEL[kind];
-            DIFFICULTIES.forEach((d) => {
-                const opt = document.createElement('option');
-                opt.value = boardKey(kind, d);
-                opt.textContent = `${KIND_LABEL[kind]} · ${DIFF_LABEL[d]}`;
-                group.appendChild(opt);
-            });
-            boardSelect.appendChild(group);
-        });
-        const tenGroup = document.createElement('optgroup');
-        tenGroup.label = '보너스 게임';
-        const tenOpt = document.createElement('option');
-        tenOpt.value = boardKey(TENPOP, TENPOP_SLOT);
-        tenOpt.textContent = `⚡ ${KIND_LABEL[TENPOP]}`;
-        tenGroup.appendChild(tenOpt);
-        boardSelect.appendChild(tenGroup);
-    }
-    buildBoardSelect();
 
     const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -226,27 +193,72 @@
         return span;
     }
 
-    const COMBO_PARTNER = { 'combo-time': 'combo-score', 'combo-score': 'combo-time' };
+    // === Board picker ===
+    // Tabs: 오늘 / 일반 / 콤보 / 합 10. 일반 and 콤보 pick a level; 콤보 also picks score or time
+    // (one game counts on both, so they are one tab with a two-way switch, not two lists).
+    const COMBO_KINDS = ['combo-score', 'combo-time'];
+    let lastLevel = 'medium';
+    let comboKind = 'combo-score';
 
-    // Combo boards get a button that flips to the same level's other combo ranking.
-    function renderSwitch() {
-        if (!switchBtn) return;
-        const partner = COMBO_PARTNER[view.kind];
-        switchBtn.hidden = !partner;
-        if (!partner) return;
-        const toScore = partner === 'combo-score';
-        switchLabel.textContent = toScore ? '점수 보기' : '시간 보기';
-        switchIcon.className = toScore ? 'fas fa-star' : 'fas fa-stopwatch';
-        switchBtn.classList.toggle('to-time', !toScore);
-        switchBtn.classList.toggle('has-new', Boolean(view.highlights[boardKey(partner, view.difficulty)]));
-        switchBtn.setAttribute('aria-label', toScore ? '콤보 점수 순위 보기' : '콤보 시간 순위 보기');
+    function modeOf(kind) {
+        return COMBO_KINDS.includes(kind) ? 'combo' : kind;
     }
+
+    function renderNav() {
+        const mode = modeOf(view.kind);
+        if (DIFFICULTIES.includes(view.difficulty)) lastLevel = view.difficulty;
+        if (COMBO_KINDS.includes(view.kind)) comboKind = view.kind;
+        tabsEl.querySelectorAll('button').forEach((btn) => {
+            const on = btn.dataset.mode === mode;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-selected', String(on));
+            // A new record somewhere under this tab
+            const mine = Object.keys(view.highlights).some((key) => modeOf(splitBoardKey(key)[0]) === btn.dataset.mode);
+            btn.classList.toggle('has-new', mine && !on);
+        });
+        const levels = mode === 'normal' || mode === 'combo';
+        levelsEl.hidden = !levels;
+        levelsEl.querySelectorAll('button').forEach((btn) => {
+            const on = btn.dataset.level === view.difficulty;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-pressed', String(on));
+        });
+        metricEl.hidden = mode !== 'combo';
+        headMain.hidden = mode === 'combo';
+        metricEl.querySelectorAll('button').forEach((btn) => {
+            const on = btn.dataset.kind === view.kind;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-pressed', String(on));
+            btn.classList.toggle('has-new', !on && Boolean(view.highlights[boardKey(btn.dataset.kind, view.difficulty)]));
+        });
+        captionEl.hidden = levels;
+        if (mode === DAILY) captionEl.textContent = `${slotLabel(DAILY, view.difficulty)} · 모두 같은 퍼즐, 시간 순`;
+        else if (mode === TENPOP) captionEl.textContent = '보너스 게임 · 점수 높은 순';
+    }
+
+    tabsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-mode]');
+        if (!btn) return;
+        const mode = btn.dataset.mode;
+        if (mode === DAILY) showView(DAILY, todayKey());
+        else if (mode === TENPOP) showView(TENPOP, TENPOP_SLOT);
+        else showView(mode === 'combo' ? comboKind : 'normal', lastLevel);
+    });
+
+    levelsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-level]');
+        if (btn) showView(view.kind, btn.dataset.level);
+    });
+
+    metricEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-kind]');
+        if (btn) showView(btn.dataset.kind, view.difficulty);
+    });
 
     // Always 10 rows like an arcade high-score table; empty places show "---".
     function renderView(boards) {
-        boardSelect.value = boardKey(view.kind, view.difficulty);
         headMain.textContent = SCORE_KINDS.has(view.kind) ? '점수' : '시간';
-        renderSwitch();
+        renderNav();
 
         const mine = view.highlights[boardKey(view.kind, view.difficulty)] || null;
         const list = (boards && boards[boardKey(view.kind, view.difficulty)]) || [];
@@ -288,18 +300,6 @@
         } catch {
             setStatus(cache ? '최신 순위를 불러오지 못했어요 (저장된 순위 표시 중)' : '순위를 불러오지 못했어요.');
         }
-    }
-
-    boardSelect.addEventListener('change', () => {
-        const [kind, difficulty] = splitBoardKey(boardSelect.value);
-        if (kind) showView(kind, difficulty);
-    });
-
-    if (switchBtn) {
-        switchBtn.addEventListener('click', () => {
-            const partner = COMBO_PARTNER[view.kind];
-            if (partner) showView(partner, view.difficulty);
-        });
     }
 
     function splitBoardKey(key) {

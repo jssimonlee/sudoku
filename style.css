@@ -4554,3 +4554,180 @@ body.tp-open:has([data-tile-mode="vivid"]) > .fx-float {
 @media (prefers-reduced-motion: reduce) {
     .tp-fever-on .tp-board-wrap::after { animation: none; opacity: 1; }
 }
+
+/* ===== TOP 10: board picker (tabs + segmented choices instead of a long dropdown) ===== */
+.lb-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+/* Mode tabs: one segmented track */
+.lb-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+    padding: 3px;
+    border-radius: 12px;
+    background: #f1f5f9;
+    box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+}
+
+.lb-tabs button,
+.lb-seg button {
+    position: relative;
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.lb-tabs button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 9px 4px;
+    border-radius: 9px;
+    color: #64748b;
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+
+.lb-tabs button i {
+    font-size: 0.78rem;
+    opacity: 0.8;
+}
+
+.lb-tabs button.active {
+    background: #fff;
+    color: #b45309;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12), 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.lb-tabs button.active i {
+    color: #f59e0b;
+    opacity: 1;
+}
+
+/* Level (and combo score / time): smaller segmented row */
+.lb-sub {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+}
+
+.lb-seg {
+    display: flex;
+    gap: 2px;
+    padding: 2px;
+    border-radius: 10px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: #fff;
+}
+
+.lb-seg[hidden] {
+    display: none;
+}
+
+.lb-levels {
+    flex: 1 1 auto;
+}
+
+.lb-levels button {
+    flex: 1;
+}
+
+.lb-seg button {
+    padding: 6px 8px;
+    border-radius: 8px;
+    color: #64748b;
+    font-size: 0.78rem;
+    font-weight: 700;
+}
+
+.lb-seg button.active {
+    background: #fef3c7;
+    color: #92400e;
+    box-shadow: inset 0 0 0 1px #fbbf24;
+}
+
+.lb-metric button.active {
+    background: #eef2ff;
+    color: #3730a3;
+    box-shadow: inset 0 0 0 1px #a5b4fc;
+}
+
+.lb-tabs button:focus-visible,
+.lb-seg button:focus-visible {
+    outline: 2px solid #f59e0b;
+    outline-offset: 1px;
+}
+
+/* A new record is waiting under another tab / the other combo ranking */
+.lb-tabs button.has-new::after,
+.lb-seg button.has-new::after {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ef4444;
+    box-shadow: 0 0 0 2px #fff;
+}
+
+.lb-caption {
+    flex: 1;
+    margin: 0;
+    padding: 6px 2px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+}
+
+.lb-caption[hidden] {
+    display: none;
+}
+
+@media (hover: hover) {
+    .lb-tabs button:not(.active):hover,
+    .lb-seg button:not(.active):hover {
+        color: #334155;
+        background: rgba(255, 255, 255, 0.6);
+    }
+}
+
+/* Combo score / time switch sits at the right end of the table header */
+.lb-head-end {
+    display: inline-flex;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.lb-head-end [hidden] {
+    display: none !important;
+}
+
+.lb-head .lb-metric {
+    letter-spacing: 0;
+}
+
+.lb-head .lb-metric button {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+}
+
+.lb-levels button {
+    padding: 7px 4px;
+    font-size: 0.8rem;
+}
