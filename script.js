@@ -973,6 +973,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Green flash over many cells at once. Every cell gets its start time as a CSS
+    // animation delay, so the whole cascade starts with one layout pass and one timer
+    // instead of a forced reflow and two timers per cell (that stuttered on phones).
+    let flashTimer = null;
+    function flashCells(list) {
+        const items = list.filter(([el]) => el);
+        if (!items.length) return;
+        items.forEach(([el]) => el.classList.remove('complete-flash'));
+        void items[0][0].offsetWidth; // one reflow restarts them all
+        let last = 0;
+        items.forEach(([el, delay]) => {
+            el.style.setProperty('--cf-delay', `${delay}ms`);
+            el.classList.add('complete-flash');
+            last = Math.max(last, delay);
+        });
+        clearTimeout(flashTimer);
+        flashTimer = setTimeout(() => {
+            document.querySelectorAll('.cell.complete-flash').forEach((el) => {
+                el.classList.remove('complete-flash');
+                el.style.removeProperty('--cf-delay');
+            });
+        }, last + 700);
+    }
+
     // Cascade wave animation for a completed number
     function celebrateNumber(val, btnEl) {
         emitFx('onNumberComplete', { val, btn: btnEl });
@@ -986,16 +1010,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // Fire cascade: each cell gets a delayed animation
-        cells.forEach((cellEl, idx) => {
-            setTimeout(() => {
-                if (!cellEl) return;
-                cellEl.classList.remove('complete-flash');
-                void cellEl.offsetWidth; // Reflow to restart animation
-                cellEl.classList.add('complete-flash');
-                setTimeout(() => cellEl.classList.remove('complete-flash'), 700);
-            }, idx * 60); // 60ms between each cell
-        });
+        // Fire cascade: each cell starts 60ms after the previous one
+        flashCells(cells.map((cellEl, idx) => [cellEl, idx * 60]));
 
         // Celebrate numpad button with a pop after the wave
         if (btnEl) {
@@ -1179,6 +1195,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const GROUP_DELAY = 120;     // ms between starting each number group
 
         let totalDelay = 0;
+        const flashList = [];
         for (let num = 1; num <= 9; num++) {
             const cells = [];
             for (let r = 0; r < 9; r++)
@@ -1186,15 +1203,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (board[r][c] === num) cells.push(getCellElement(r, c));
 
             const numStartDelay = totalDelay;
-            cells.forEach((cellEl, idx) => {
-                setTimeout(() => {
-                    if (!cellEl) return;
-                    cellEl.classList.remove('complete-flash');
-                    void cellEl.offsetWidth;
-                    cellEl.classList.add('complete-flash');
-                    setTimeout(() => cellEl.classList.remove('complete-flash'), 700);
-                }, numStartDelay + idx * WAVE_DURATION);
-            });
+            cells.forEach((cellEl, idx) => flashList.push([cellEl, numStartDelay + idx * WAVE_DURATION]));
 
             // Also flash numpad button
             const btn = document.querySelector(`.num-btn[data-val="${num}"]`);
@@ -1207,6 +1216,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             totalDelay += GROUP_DELAY;
         }
+
+        flashCells(flashList);
 
         // Show overlay after all animations finish
         setTimeout(callback, totalDelay + 700);

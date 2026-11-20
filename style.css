@@ -423,35 +423,42 @@ main {
 }
 
 /* Number Completion Cascade Effect */
+/* Number finished / puzzle solved: the cell pops and glows green.
+   Cheap on phones: the glow is drawn once on a layer under the number and only its
+   opacity animates (an animated box-shadow repaints the blur every frame), and the
+   cascade order comes from --cf-delay, set by script.js. */
 @keyframes numberComplete {
-    0% {
-        transform: scale(1);
-        background-color: transparent !important;
-    }
+    0% { transform: scale(1); }
+    30% { transform: scale(1.3); color: #d1fae5; }
+    65% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
 
-    30% {
-        transform: scale(1.3);
-        background-color: rgba(16, 185, 129, 0.55) !important;
-        color: #d1fae5;
-        box-shadow: 0 0 22px rgba(16, 185, 129, 0.9);
-    }
-
-    65% {
-        transform: scale(1.1);
-        background-color: rgba(16, 185, 129, 0.2) !important;
-    }
-
-    100% {
-        transform: scale(1);
-        background-color: transparent !important;
-    }
+@keyframes numberCompleteGlow {
+    0% { opacity: 0; }
+    30% { opacity: 1; }
+    65% { opacity: 0.25; }
+    100% { opacity: 0; }
 }
 
 .cell.complete-flash {
-    animation: numberComplete 0.65s ease-out forwards !important;
+    animation: numberComplete 0.65s ease-out var(--cf-delay, 0ms) both !important;
     z-index: 10;
     position: relative;
     isolation: isolate;
+    will-change: transform;
+}
+
+.cell.complete-flash::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    box-shadow: 0 0 22px rgba(16, 185, 129, 0.9);
+    opacity: 0;
+    animation: numberCompleteGlow 0.65s ease-out var(--cf-delay, 0ms) both;
+    will-change: opacity;
 }
 
 /* Notes mode active button */
