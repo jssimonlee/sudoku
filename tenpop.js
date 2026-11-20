@@ -411,21 +411,28 @@
     }
 
     // Redraws only the given cells, so animations elsewhere on the board keep playing.
+    // All writes happen first and the fall animations restart after one shared layout pass.
+    // (Forcing a layout per falling cell made a whole-row blast do dozens of layouts in a row,
+    // which is what stuttered on phones.)
     function renderCells(list, drops = null) {
+        const falling = [];
         list.forEach(([r, c]) => {
             const cell = cells[r * SIZE + c];
             const v = grid[r][c];
-            cell.textContent = v === JOKER ? '?' : v ? String(v) : '';
+            const text = v === JOKER ? '?' : v ? String(v) : '';
+            if (cell.textContent !== text) cell.textContent = text;
             cell.className = cellClass(r, c);
             const drop = drops ? drops[r][c] : 0;
             if (drop > 0) {
                 cell.style.setProperty('--drop', drop);
                 cell.style.setProperty('--fall-ms', `${Math.round(160 + 70 * Math.sqrt(drop))}ms`);
-                void cell.offsetWidth;
-                cell.classList.add('tp-fall');
+                falling.push(cell);
             }
             if (picked && same(picked, [r, c]) && v) cell.classList.add('tp-anchor');
         });
+        if (!falling.length) return;
+        void boardEl.offsetWidth;
+        falling.forEach((cell) => cell.classList.add('tp-fall'));
     }
 
     const ALL_CELLS = Array.from({ length: SIZE * SIZE }, (_, i) => [Math.floor(i / SIZE), i % SIZE]);
@@ -442,7 +449,12 @@
         chainEl.textContent = maxChain ? String(maxChain) : '-';
         comboEl.textContent = combo >= 2 ? `×${combo}` : '-';
         finishBtn.disabled = finished;
-        setArtText(hintBtn, `💡 힌트 ${hintsLeft}`);
+        // Rebuilding the button (and its picture) on every clear was wasted work: only when it changes.
+        const hintText = `💡 힌트 ${hintsLeft}`;
+        if (hintBtn.dataset.text !== hintText) {
+            hintBtn.dataset.text = hintText;
+            setArtText(hintBtn, hintText);
+        }
         hintBtn.disabled = finished || hintsLeft <= 0;
         renderFever();
         renderTime();
@@ -522,7 +534,8 @@
         hintsLeft--;
         hintShown = true;
         swap.forEach((p) => cellEl(p).classList.add('tp-hinting'));
-        setArtText(hintBtn, `💡 힌트 ${hintsLeft}`);
+        hintBtn.dataset.text = `💡 힌트 ${hintsLeft}`;
+        setArtText(hintBtn, hintBtn.dataset.text);
         hintBtn.disabled = hintsLeft <= 0;
         fx('onTenPick');
     }
@@ -626,12 +639,13 @@
 
     // Locked cells are dimmed a little, so it is clear why they don't respond.
     function renderLocks() {
+        const lockRow = Array(SIZE).fill(-1);
+        locks.forEach((lock) => { lockRow[lock.c] = Math.max(lockRow[lock.c], lock.row); });
         for (let r = 0; r < SIZE; r++) {
             for (let c = 0; c < SIZE; c++) {
                 const k = r * SIZE + c;
-                const locked = !popping.has(k) && !swapping.has(k) && grid[r][c] !== 0 &&
-                    locks.some((lock) => lock.c === c && r <= lock.row);
-                cells[k].classList.toggle('tp-locked', locked);
+                const locked = r <= lockRow[c] && grid[r][c] !== 0 && !popping.has(k) && !swapping.has(k);
+                if (cells[k].classList.contains('tp-locked') !== locked) cells[k].classList.toggle('tp-locked', locked);
             }
         }
     }

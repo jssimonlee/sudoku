@@ -4526,11 +4526,29 @@ body.tp-open:has([data-tile-mode="vivid"]) > .fx-float {
     100% { transform: scale(1); opacity: 1; }
 }
 
-/* Popping and falling cells get their own layer for the moment they move */
-.tp-cell.tp-pop,
-.tp-cell.tp-fall,
-.tp-cell.tp-slide {
+/* Every board cell keeps its own layer for the whole game. Giving cells a layer only while they
+   pop / fall meant a row blast created and threw away dozens of layers at once. */
+.tp-board .tp-cell {
     will-change: transform;
+}
+
+/* Popping: the green tint is set once, not animated (an animated background repaints every
+   popping cell on every frame); only size and fade move, which the GPU handles on its own. */
+.tp-board .tp-cell.tp-pop {
+    background: #bbf7d0;
+    animation: tpPopFast 0.18s ease-in forwards;
+}
+
+@keyframes tpPopFast {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.18); opacity: 1; }
+    100% { transform: scale(0.2); opacity: 0; }
+}
+
+/* Labels and score pops move on their own layer too */
+.tp-banner,
+.fx-float {
+    will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
