@@ -263,6 +263,30 @@
     let ctx2d = null;
     let particles = [];
     let rafId = null;
+    // Big clears (whole rows, merged specials) used to throw 500-1000 sparks at once, which made
+    // phones stutter. The look stays the same, but the total is capped: a burst over many cells
+    // shares one budget, and past the cap the oldest sparks make room for new ones.
+    const MAX_PARTICLES = 320;
+    const BURST_BUDGET = 150;
+    // Each colour's dot is drawn once into a small sprite and stamped from then on (much cheaper
+    // than building an arc path per spark per frame).
+    const SPRITE_SIZE = 16;
+    const sprites = {};
+
+    function spriteFor(color) {
+        let sprite = sprites[color];
+        if (sprite) return sprite;
+        sprite = document.createElement('canvas');
+        sprite.width = SPRITE_SIZE;
+        sprite.height = SPRITE_SIZE;
+        const g = sprite.getContext('2d');
+        g.fillStyle = color;
+        g.beginPath();
+        g.arc(SPRITE_SIZE / 2, SPRITE_SIZE / 2, SPRITE_SIZE / 2, 0, Math.PI * 2);
+        g.fill();
+        sprites[color] = sprite;
+        return sprite;
+    }
 
     function ensureCanvas() {
         if (canvas) return;
@@ -276,7 +300,8 @@
 
     function resizeCanvas() {
         if (!canvas) return;
-        const dpr = window.devicePixelRatio || 1;
+        // A full-screen canvas at 3x on phones is a lot of pixels to clear every frame; 2x looks the same for sparks.
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
         canvas.width = window.innerWidth * dpr;
         canvas.height = window.innerHeight * dpr;
         ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -288,6 +313,8 @@
 
     function burst(x, y, count, speed, palette = COLORS) {
         ensureCanvas();
+        const overflow = particles.length + count - MAX_PARTICLES;
+        if (overflow > 0) particles.splice(0, Math.min(overflow, particles.length));
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const v = speed * (0.4 + Math.random() * 0.8);
@@ -355,9 +382,7 @@
                 ctx2d.fillRect(-p.size / 2, -p.size / 4, p.size, p.size / 2);
                 ctx2d.restore();
             } else {
-                ctx2d.beginPath();
-                ctx2d.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-                ctx2d.fill();
+                ctx2d.drawImage(spriteFor(p.color), p.x - p.size, p.y - p.size, p.size * 2, p.size * 2);
             }
         }
         ctx2d.globalAlpha = 1;
@@ -378,6 +403,15 @@
     function center(el) {
         const r = el.getBoundingClientRect();
         return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+
+    // Sparks over many cells at once: all positions are read first (one layout), and the cells
+    // share one spark budget, so a whole-board blast costs about as much as a few cells.
+    function burstCells(cells, perCell, speed, palette) {
+        const spots = cells.filter(Boolean).map(center);
+        if (!spots.length) return;
+        const each = Math.max(2, Math.min(perCell, Math.floor(BURST_BUDGET / spots.length)));
+        spots.forEach(({ x, y }) => burst(x, y, each, speed, palette));
     }
 
     function restartClass(el, className, duration) {
@@ -457,8 +491,13 @@
         });
     }
 
+    const MAX_FLOATS = 6;
+
     function floatText(text, anchor, tier, extraClass = '') {
         if (!anchor) return;
+        // During long chains, keep only the newest few score pops on screen.
+        const floats = document.querySelectorAll('.fx-float');
+        for (let i = 0; i <= floats.length - MAX_FLOATS; i++) floats[i].remove();
         const { x, y } = center(anchor);
         const el = document.createElement('div');
         el.className = `fx-float fx-float-${tier} ${extraClass}`.trim();
@@ -754,10 +793,7 @@
             playSound('tenChain', step);
             vibrate(3);
             if (!settings.boardFx || !cells || !cells.length) return;
-            cells.forEach((cell) => {
-                const { x, y } = center(cell);
-                burst(x, y, 12, 3.8, COLORS);
-            });
+            burstCells(cells, 12, 3.8, COLORS);
             floatText(`+${points}`, cells[0], step >= 3 ? 4 : 3);
         },
 
@@ -765,21 +801,14 @@
             playSound('break');
             vibrate('break');
             if (!settings.boardFx || !cells) return;
-            cells.forEach((cell) => {
-                const { x, y } = center(cell);
-                burst(x, y, 14, 4.5, ['#f97316', '#ef4444', '#fbbf24', '#78350f']);
-            });
+            burstCells(cells, 14, 4.5, ['#f97316', '#ef4444', '#fbbf24', '#78350f']);
         },
 
         onTenCombo({ cells }) {
             playSound('tenCombo');
             vibrate('break');
             if (!settings.boardFx || !cells) return;
-            cells.forEach((cell, i) => {
-                if (i % 2) return;   // half the cells are plenty of sparks
-                const { x, y } = center(cell);
-                burst(x, y, 10, 5, ['#fde047', '#f472b6', '#60a5fa', '#ffffff']);
-            });
+            burstCells(cells.filter((cell, i) => i % 2 === 0), 10, 5, ['#fde047', '#f472b6', '#60a5fa', '#ffffff']);
         },
 
         onTenRush({ level }) {
@@ -823,10 +852,7 @@
             vibrate(combo >= 5 || length >= 5 ? 3 : 'tap');
             if (!settings.boardFx || !cells || !cells.length) return;
             const palette = star || fever ? COLORS : combo >= 5 ? COLORS : combo >= 3 ? COLORS.concat(BOARD_COLORS) : BOARD_COLORS;
-            cells.forEach((cell) => {
-                const { x, y } = center(cell);
-                burst(x, y, combo >= 3 ? 10 : 6, combo >= 3 ? 3.6 : 2.8, palette);
-            });
+            burstCells(cells, combo >= 3 ? 10 : 6, combo >= 3 ? 3.6 : 2.8, palette);
             const tier = combo >= 8 ? 4 : combo >= 5 ? 3 : combo >= 3 ? 2 : 1;
             floatText(`+${points}`, cells[Math.floor(cells.length / 2)], tier);
         },
